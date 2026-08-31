@@ -1,0 +1,17 @@
+{
+  "name": "sms-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:portal": "npm run dev -w @sms/school-portal",
+    "dev:admin": "npm run dev -w @sms/super-admin",
+    "dev:all": "npx concurrently \"npm run dev:backend\" \"npm run dev:portal\" \"npm run dev:admin\"",
+    "db:reset": "npm run db:reset -w backend"
+  }
+}

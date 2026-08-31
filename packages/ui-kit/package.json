@@ -1,0 +1,11 @@
+{
+  "name": "@sms/ui-kit",
+  "private": true,
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "peerDependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

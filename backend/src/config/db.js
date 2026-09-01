@@ -9,10 +9,16 @@ const sequelize = new Sequelize(
     host: config.db.host,
     port: config.db.port,
     dialect: 'mysql',
+    dialectOptions: {
+      ssl: (process.env.DB_SSL === 'true' || (config.db.host && !['127.0.0.1', 'localhost'].includes(config.db.host))) ? {
+        require: true,
+        rejectUnauthorized: false,
+      } : undefined,
+    },
     logging: config.nodeEnv === 'development' ? console.log : false,
     define: {
       timestamps: true,
-      underscored: true, // Converts camelCase to snake_case in db
+      underscored: true,
     },
     pool: {
       max: 10,
@@ -22,6 +28,7 @@ const sequelize = new Sequelize(
     },
   }
 );
+
 
 const connectDB = async () => {
   try {

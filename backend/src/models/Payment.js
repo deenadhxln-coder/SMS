@@ -30,7 +30,6 @@ const Payment = sequelize.define('Payment', {
   transactionRef: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
     field: 'transaction_ref',
   },
   paidAt: {
@@ -41,6 +40,17 @@ const Payment = sequelize.define('Payment', {
   },
 }, {
   tableName: 'payments',
+  indexes: [
+    {
+      name: 'uniq_payments_tenant_txn_ref',
+      unique: true,
+      fields: ['tenant_id', 'transaction_ref'],
+    },
+    {
+      name: 'idx_payments_tenant_invoice',
+      fields: ['tenant_id', 'invoice_id'],
+    },
+  ],
 });
 
 module.exports = Payment;

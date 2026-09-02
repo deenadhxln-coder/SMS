@@ -28,6 +28,10 @@ const createTenant = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide schoolName, slug, adminName, adminEmail and adminPassword' });
     }
 
+    if (planType && !['FREE', 'STANDARD', 'PREMIUM'].includes(planType)) {
+      return res.status(400).json({ success: false, message: 'Invalid plan type. Allowed: FREE, STANDARD, PREMIUM' });
+    }
+
     // Check slug unique
     const slugExists = await Tenant.findOne({ where: { slug }, transaction });
     if (slugExists) {
@@ -94,6 +98,15 @@ const createTenant = async (req, res, next) => {
 const updateTenant = async (req, res, next) => {
   try {
     const { planType, status, logoUrl } = req.body;
+
+    if (planType && !['FREE', 'STANDARD', 'PREMIUM'].includes(planType)) {
+      return res.status(400).json({ success: false, message: 'Invalid plan type. Allowed: FREE, STANDARD, PREMIUM' });
+    }
+
+    if (status && !['ACTIVE', 'SUSPENDED'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Invalid status. Allowed: ACTIVE, SUSPENDED' });
+    }
+
     const tenant = await Tenant.findByPk(req.params.id);
 
     if (!tenant) {

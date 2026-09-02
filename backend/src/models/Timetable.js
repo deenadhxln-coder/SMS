@@ -50,6 +50,12 @@ const Timetable = sequelize.define('Timetable', {
 }, {
   tableName: 'timetables',
   timestamps: true,
+  indexes: [
+    {
+      name: 'idx_timetables_tenant_class_dow',
+      fields: ['tenant_id', 'class_id', 'day_of_week'],
+    },
+  ],
 });
 
 module.exports = Timetable;

@@ -73,6 +73,7 @@ const seedDatabase = async () => {
         email: adminEmail,
         passwordHash: hashedPassword,
         roleId: 1, // Super Admin
+        tenantId: defaultTenantId,
         status: 'ACTIVE',
       });
     }

@@ -13,14 +13,27 @@ const app = express();
 const server = http.createServer(app);
 
 // 1. Middlewares
+app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({
   origin: config.corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+// Sanitized HTTP Request Logger (logs method, path, status, latency without exposing bodies, queries or secrets)
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (config.nodeEnv !== 'test') {
+      console.log(`[HTTP] ${req.method} ${req.path} ${res.statusCode} (${duration}ms)`);
+    }
+  });
+  next();
+});
 
 // Apply rate limiting to all API requests
 app.use('/api/', apiLimiter);
@@ -40,24 +53,79 @@ app.use('/api/fees', protect, verifyTenant, require('./routes/feeRoutes'));
 app.use('/api/dashboard', protect, verifyTenant, require('./routes/dashboardRoutes'));
 app.use('/api/reports', protect, verifyTenant, require('./routes/reportsRoutes'));
 
-// Root path diagnostic route
+const redisClient = require('./config/redis');
+
+// Root path diagnostic route (backwards-compatible)
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', env: config.nodeEnv, timestamp: new Date() });
 });
 
-// 3. Error Handling Middleware
+// Liveness Probe: process is alive and responsive (no DB dependency)
+app.get('/health/liveness', (req, res) => {
+  res.status(200).json({
+    status: 'UP',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Readiness Probe: checks required DB dependency (Redis is non-critical)
+app.get('/health/readiness', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    const redisStatus = typeof redisClient.isRedisConnected === 'function'
+      ? (redisClient.isRedisConnected() ? 'UP' : 'DEGRADED')
+      : 'UP';
+
+    return res.status(200).json({
+      status: 'READY',
+      db: 'UP',
+      redis: redisStatus,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'UNAVAILABLE',
+      db: 'DOWN',
+      message: 'Database connection failure',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// 3. 404 JSON Catch-All Middleware
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Resource not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// 4. Centralized Error Handling Middleware
 app.use(errorHandler);
 
-// 4. Initialize Database & Start Server
+// 5. Initialize Database & Start Server
 const startServer = async () => {
   try {
     // Connect to database
     await connectDB();
 
-    // Synchronize models (alter schema to add missing tables/columns safely)
-    console.log('Synchronizing database models...');
-    await sequelize.sync({ alter: true });
-    console.log('Database synced successfully.');
+    // Verify database migration status (read-only diagnostic check)
+    const { checkPendingMigrations } = require('./migrator');
+    const pendingMigrations = await checkPendingMigrations();
+    if (pendingMigrations.length > 0) {
+      const pendingNames = pendingMigrations.map(m => m.name).join(', ');
+      if (config.nodeEnv === 'production') {
+        console.error(`\n❌ FATAL DEPLOYMENT ERROR: ${pendingMigrations.length} pending database migration(s) detected: [${pendingNames}].`);
+        console.error('In production, migrations must be executed during the release phase via "npm run db:migrate" before starting web workers.');
+        process.exit(1);
+      } else {
+        console.warn(`\n⚠️  WARNING: ${pendingMigrations.length} pending database migration(s) detected: [${pendingNames}].`);
+        console.warn('Run "npm run db:migrate" in your terminal to apply pending migrations.\n');
+      }
+    } else {
+      console.log('Database migration status: All migrations applied.');
+    }
 
     // Seed default roles and Super Admin account
     await seedDatabase();
@@ -80,6 +148,78 @@ const startServer = async () => {
   }
 };
 
+// 6. Graceful Shutdown & Signal Handling
+let isShuttingDown = false;
+
+const gracefulShutdown = async (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`\n[SHUTDOWN] Received ${signal}. Draining in-flight requests and shutting down...`);
+
+  // Bounded safety timeout (10s)
+  const forceExit = setTimeout(() => {
+    console.error('[SHUTDOWN] Hard timeout reached (10s). Forcing process termination.');
+    process.exit(1);
+  }, 10000);
+  forceExit.unref();
+
+  try {
+    // 1. Stop accepting new HTTP requests
+    await new Promise((resolve) => {
+      server.close((err) => {
+        if (err) {
+          console.error('[SHUTDOWN] Error closing HTTP server:', err.message);
+        } else {
+          console.log('[SHUTDOWN] HTTP listener closed.');
+        }
+        resolve();
+      });
+    });
+
+    // 2. Close Socket.IO cleanly
+    try {
+      const { getIO } = require('./config/socket');
+      const io = getIO();
+      if (io) {
+        await new Promise((resolve) => {
+          io.close(() => {
+            console.log('[SHUTDOWN] Socket.IO listener closed.');
+            resolve();
+          });
+        });
+      }
+    } catch (_) {}
+
+    // 3. Close Sequelize database pool
+    try {
+      await sequelize.close();
+      console.log('[SHUTDOWN] Database connection pool closed.');
+    } catch (dbErr) {
+      console.error('[SHUTDOWN] Error closing database connection pool:', dbErr.message);
+    }
+
+    // 4. Close Redis client
+    try {
+      if (typeof redisClient.closeRedis === 'function') {
+        await redisClient.closeRedis();
+        console.log('[SHUTDOWN] Redis connection closed.');
+      }
+    } catch (redisErr) {
+      console.error('[SHUTDOWN] Error closing Redis client:', redisErr.message);
+    }
+
+    console.log('[SHUTDOWN] Graceful shutdown completed cleanly.');
+    process.exit(0);
+  } catch (error) {
+    console.error('[SHUTDOWN] Error during graceful shutdown:', error.message);
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Handle process crashes gracefully
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err);
@@ -90,3 +230,4 @@ process.on('uncaughtException', (err) => {
 });
 
 startServer();
+

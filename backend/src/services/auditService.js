@@ -1,8 +1,15 @@
 const { AuditLog, PlatformAuditLog } = require('../models');
+const tenantStorage = require('../utils/tenantContext');
 
-const logAudit = async (userId, action, entity, entityId = null) => {
+const logAudit = async (userId, action, entity, entityId = null, tenantId = null) => {
   try {
+    const resolvedTenantId = tenantId || tenantStorage.getStore();
+    if (!resolvedTenantId) {
+      console.warn(`[AUDIT WARNING] Skipped writing AuditLog for action ${action} on ${entity}: missing tenantId context.`);
+      return;
+    }
     await AuditLog.create({
+      tenantId: resolvedTenantId,
       userId,
       action,
       entity,

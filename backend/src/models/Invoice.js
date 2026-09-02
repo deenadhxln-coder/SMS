@@ -40,6 +40,16 @@ const Invoice = sequelize.define('Invoice', {
   },
 }, {
   tableName: 'invoices',
+  indexes: [
+    {
+      name: 'idx_invoices_tenant_status',
+      fields: ['tenant_id', 'status'],
+    },
+    {
+      name: 'idx_invoices_tenant_student',
+      fields: ['tenant_id', 'student_id'],
+    },
+  ],
 });
 
 module.exports = Invoice;

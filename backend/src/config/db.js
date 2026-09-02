@@ -1,6 +1,21 @@
 const { Sequelize } = require('sequelize');
 const config = require('./config');
 
+const getSslConfig = () => {
+  const isRemoteHost = config.db.host && !['127.0.0.1', 'localhost'].includes(config.db.host);
+  if (process.env.DB_SSL === 'true' || isRemoteHost) {
+    const ssl = {
+      require: true,
+      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'false' ? false : (process.env.DB_CA_CERT ? true : false),
+    };
+    if (process.env.DB_CA_CERT) {
+      ssl.ca = process.env.DB_CA_CERT;
+    }
+    return ssl;
+  }
+  return undefined;
+};
+
 const sequelize = new Sequelize(
   config.db.database,
   config.db.username,
@@ -10,10 +25,7 @@ const sequelize = new Sequelize(
     port: config.db.port,
     dialect: 'mysql',
     dialectOptions: {
-      ssl: (process.env.DB_SSL === 'true' || (config.db.host && !['127.0.0.1', 'localhost'].includes(config.db.host))) ? {
-        require: true,
-        rejectUnauthorized: false,
-      } : undefined,
+      ssl: getSslConfig(),
     },
     logging: config.nodeEnv === 'development' ? console.log : false,
     define: {

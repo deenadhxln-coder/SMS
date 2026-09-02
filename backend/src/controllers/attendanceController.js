@@ -9,9 +9,23 @@ const markAttendance = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
     const { classId, date, markings } = req.body; // markings: [{ studentId, status: 'PRESENT'|'ABSENT'|'LATE' }]
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+
+    if (!tenantId) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!classId || !date || !markings || !Array.isArray(markings)) {
+      await transaction.rollback();
       return res.status(400).json({ success: false, message: 'Please provide classId, date and markings array' });
+    }
+
+    // Verify class belongs to the authenticated school tenant
+    const classExists = await Class.findOne({ where: { id: classId, tenantId }, transaction });
+    if (!classExists) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Referenced class not found in this school' });
     }
 
     const savedMarkings = [];
@@ -31,16 +45,16 @@ const markAttendance = async (req, res, next) => {
         return res.status(400).json({ success: false, message: `Invalid status: ${status} for student ${studentId}` });
       }
 
-      // Check if student belongs to class
-      const student = await Student.findOne({ where: { id: studentId, classId }, transaction });
+      // Check if student belongs to class within this school tenant
+      const student = await Student.findOne({ where: { id: studentId, classId, tenantId }, transaction });
       if (!student) {
         await transaction.rollback();
-        return res.status(400).json({ success: false, message: `Student ${studentId} does not belong to class ${classId}` });
+        return res.status(400).json({ success: false, message: `Student ${studentId} does not belong to class ${classId} in this school` });
       }
 
       // Check for existing attendance on this date (upsert to prevent duplicate index violation)
       const existing = await Attendance.findOne({
-        where: { studentId, date },
+        where: { studentId, date, tenantId },
         transaction,
       });
 
@@ -51,13 +65,14 @@ const markAttendance = async (req, res, next) => {
         await existing.save({ transaction });
         savedMarkings.push(existing);
       } else {
-        // Create new record
+        // Create new record with explicit tenantId
         const record = await Attendance.create({
           studentId,
           classId,
           date,
           status,
           markedBy: req.user.id,
+          tenantId,
         }, { transaction });
         savedMarkings.push(record);
       }
@@ -66,8 +81,8 @@ const markAttendance = async (req, res, next) => {
     await transaction.commit();
 
     // Log action & clear dashboard cache
-    await logAudit(req.user.id, 'MARK_ATTENDANCE', 'Class', classId);
-    await invalidateDashboardCache(req.user.tenantId);
+    await logAudit(req.user.id, 'MARK_ATTENDANCE', 'Class', classId, tenantId);
+    await invalidateDashboardCache(tenantId);
 
     return res.json({
       success: true,
@@ -86,31 +101,49 @@ const markAttendance = async (req, res, next) => {
 const getAttendanceHistory = async (req, res, next) => {
   try {
     const { studentId, classId, startDate, endDate } = req.query;
-    const whereClause = {};
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
+    const whereClause = { tenantId };
 
     // RBAC and user context filtering
-    const role = req.user.role.name;
-    if (role === 'Student') {
+    const roleName = req.user.role?.name || req.user.role;
+    if (roleName === 'Student') {
       // Find current student profile
-      const student = await Student.findOne({ where: { userId: req.user.id } });
+      const student = await Student.findOne({ where: { userId: req.user.id, tenantId } });
       if (!student) {
         return res.status(404).json({ success: false, message: 'Student profile not found' });
       }
       whereClause.studentId = student.id;
-    } else if (role === 'Parent') {
-      // If parent, check if requested studentId is indeed their child
+    } else if (roleName === 'Parent') {
+      // If parent, check if requested studentId is indeed their child in this tenant
       if (!studentId) {
         return res.status(400).json({ success: false, message: 'Please specify child studentId' });
       }
-      const isChild = await Student.findOne({ where: { id: studentId, parentId: req.user.id } });
+      const isChild = await Student.findOne({ where: { id: studentId, parentId: req.user.id, tenantId } });
       if (!isChild) {
         return res.status(403).json({ success: false, message: 'Unauthorized access to this student history' });
       }
       whereClause.studentId = studentId;
     } else {
-      // Admin/Teacher can query freely
-      if (studentId) whereClause.studentId = studentId;
-      if (classId) whereClause.classId = classId;
+      // Admin/Teacher can query freely within tenant
+      if (studentId) {
+        const studentExists = await Student.findOne({ where: { id: studentId, tenantId } });
+        if (!studentExists) {
+          return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+        whereClause.studentId = studentId;
+      }
+      if (classId) {
+        const classExists = await Class.findOne({ where: { id: classId, tenantId } });
+        if (!classExists) {
+          return res.status(404).json({ success: false, message: 'Class not found' });
+        }
+        whereClause.classId = classId;
+      }
     }
 
     // Date filters

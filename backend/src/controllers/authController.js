@@ -16,13 +16,24 @@ const generateToken = (user) => {
 
 // @desc    Register a new user
 // @route   POST /api/auth/register
-// @access  Public
+// @access  Public / Tenant Scoped
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, roleName, department, parentId, tenantId } = req.body;
+    const { name, email, password, roleName, department, parentId } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, message: 'Please provide name, email and password' });
+    }
+
+    // Role Whitelisting: Self-registration strictly allows Student, Teacher, Parent
+    const ALLOWED_REGISTRATION_ROLES = ['Student', 'Teacher', 'Parent'];
+    const targetRoleName = roleName || 'Student';
+
+    if (!ALLOWED_REGISTRATION_ROLES.includes(targetRoleName)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid or unauthorized role for self-registration: ${targetRoleName}. Allowed roles are: [${ALLOWED_REGISTRATION_ROLES.join(', ')}]`,
+      });
     }
 
     // Check if user already exists
@@ -32,23 +43,66 @@ const register = async (req, res, next) => {
     }
 
     // Resolve Role
-    const targetRoleName = roleName || 'Student';
     const role = await Role.findOne({ where: { name: targetRoleName } });
     if (!role) {
       return res.status(400).json({ success: false, message: `Invalid role specified: ${targetRoleName}` });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create User mapping to active tenant context
-    let targetTenantId = tenantId || req.user?.tenantId || null;
-    if (!targetTenantId && targetRoleName !== 'Super Admin') {
-      const defaultTenant = await Tenant.findOne();
-      if (defaultTenant) {
-        targetTenantId = defaultTenant.id;
+    // Tenant Context Enforcement: strictly derived from trusted server-side context or verified auth token
+    let authUser = req.user;
+    if (!authUser && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, config.jwtSecret);
+        if (decoded.role === 'Super Admin') {
+          const { PlatformAdmin } = require('../models');
+          authUser = await PlatformAdmin.findByPk(decoded.id);
+          if (authUser) authUser.role = { name: 'Super Admin' };
+        }
+        if (!authUser) {
+          authUser = await User.findByPk(decoded.id, {
+            include: [{ model: Role, as: 'role' }]
+          });
+        }
+      } catch (err) {
+        // Ignore invalid token and fail closed below
       }
     }
+
+    let targetTenantId = authUser?.tenantId || (req.tenant ? req.tenant.id : null);
+    if (!targetTenantId && authUser && (authUser.role?.name === 'Super Admin' || authUser.role === 'Super Admin')) {
+      const headerTenantId = req.headers['x-tenant-id'];
+      if (headerTenantId) {
+        const targetTenant = await Tenant.findByPk(headerTenantId);
+        if (targetTenant) targetTenantId = targetTenant.id;
+      } else {
+        const defaultTenant = await Tenant.findOne();
+        if (defaultTenant) targetTenantId = defaultTenant.id;
+      }
+    }
+
+    if (!targetTenantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant context required for registration. Public un-scoped registration is not permitted.',
+      });
+    }
+
+    // Validate Parent relationship within the same tenant if specified
+    let validatedParentId = null;
+    if (parentId && targetRoleName === 'Student') {
+      const parentUser = await User.findOne({
+        where: { id: parentId, tenantId: targetTenantId },
+        include: [{ model: Role, as: 'role', where: { name: 'Parent' } }]
+      });
+      if (!parentUser) {
+        return res.status(400).json({ success: false, message: 'Invalid or cross-tenant parentId specified' });
+      }
+      validatedParentId = parentUser.id;
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
       name,
@@ -67,7 +121,7 @@ const register = async (req, res, next) => {
         admissionNo,
         userId: user.id,
         status: 'ACTIVE',
-        parentId: parentId || null,
+        parentId: validatedParentId,
         tenantId: targetTenantId
       });
     } else if (targetRoleName === 'Teacher') {
@@ -89,8 +143,8 @@ const register = async (req, res, next) => {
       ],
     });
 
-    // Write audit log
-    await logAudit(user.id, 'REGISTER', 'User', user.id);
+    // Write audit log with explicit tenantId
+    await logAudit(user.id, 'REGISTER', 'User', user.id, targetTenantId);
 
     const token = generateToken(userWithRole);
 
@@ -132,6 +186,9 @@ const login = async (req, res, next) => {
 
       const isMatch = await bcrypt.compare(password, platformAdmin.passwordHash);
       if (!isMatch) {
+        try {
+          await logPlatformAudit(platformAdmin.id, 'LOGIN_FAILED', null, { details: 'Failed authentication attempt' });
+        } catch (_) {}
         return res.status(401).json({ success: false, message: 'Invalid credentials' });
       }
 
@@ -183,11 +240,14 @@ const login = async (req, res, next) => {
     // Check Password
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
+      try {
+        await logAudit(user.id, 'LOGIN_FAILED', 'User', user.id, user.tenantId);
+      } catch (_) {}
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Write audit log
-    await logAudit(user.id, 'LOGIN', 'User', user.id);
+    await logAudit(user.id, 'LOGIN', 'User', user.id, user.tenantId);
 
     const token = generateToken(user);
 

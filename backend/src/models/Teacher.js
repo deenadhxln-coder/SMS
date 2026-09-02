@@ -35,8 +35,13 @@ const Teacher = sequelize.define('Teacher', {
   tableName: 'teachers',
   indexes: [
     {
+      name: 'teachers_tenant_id_employee_no',
       unique: true,
       fields: ['tenant_id', 'employee_no'],
+    },
+    {
+      name: 'idx_teachers_tenant_dept',
+      fields: ['tenant_id', 'department'],
     },
   ],
 });

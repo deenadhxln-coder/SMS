@@ -4,7 +4,7 @@ const { sequelize } = require('../config/db');
 const AuditLog = sequelize.define('AuditLog', {
   tenantId: {
     type: DataTypes.UUID,
-    allowNull: true,
+    allowNull: false,
     field: 'tenant_id',
   },
   id: {
@@ -38,6 +38,12 @@ const AuditLog = sequelize.define('AuditLog', {
 }, {
   tableName: 'audit_logs',
   timestamps: false,
+  indexes: [
+    {
+      name: 'idx_audit_logs_tenant_timestamp',
+      fields: ['tenant_id', 'timestamp'],
+    },
+  ],
 });
 
 module.exports = AuditLog;

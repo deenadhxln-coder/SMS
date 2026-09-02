@@ -50,8 +50,7 @@ tenantModels.forEach(model => {
   model.addHook('beforeValidate', (instance) => {
     try {
       if (!instance.tenantId) {
-        // Direct model creation in seeders/tests defaults to the master tenant
-        const tenantId = tenantStorage.getStore() || 'd0000000-0000-0000-0000-000000000000';
+        const tenantId = tenantStorage.getStore();
         if (tenantId) {
           instance.tenantId = tenantId;
         }
@@ -64,7 +63,7 @@ tenantModels.forEach(model => {
 
   model.addHook('beforeBulkCreate', (instances) => {
     try {
-      const tenantId = tenantStorage.getStore() || 'd0000000-0000-0000-0000-000000000000';
+      const tenantId = tenantStorage.getStore();
       if (tenantId) {
         instances.forEach(instance => {
           if (!instance.tenantId) {

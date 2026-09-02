@@ -1,9 +1,17 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+const jwtSecret = process.env.JWT_SECRET || 'dev_jwt_secret_change_in_production';
+
+// Production Startup Guard: Fail closed if JWT_SECRET is unconfigured or default
+if (nodeEnv === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'dev_jwt_secret_change_in_production')) {
+  throw new Error('FATAL CONFIG ERROR: JWT_SECRET must be set to a secure string in production environment.');
+}
+
 module.exports = {
   port: process.env.PORT || 5000,
-  nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: process.env.JWT_SECRET || 'school_secret_jwt_key_2026_production',
+  nodeEnv,
+  jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1d',
   corsOrigin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : ['http://localhost:5173', 'http://localhost:5174'],
   db: {
@@ -15,3 +23,4 @@ module.exports = {
   },
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
 };
+

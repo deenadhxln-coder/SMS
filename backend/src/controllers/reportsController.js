@@ -3,10 +3,15 @@ const { Attendance, Student, Class, Exam, ExamSubject, Mark, Invoice, FeeStructu
 const getReportData = async (req, res, next) => {
   const { type } = req.params;
   const { classId, examId, startDate, endDate } = req.query;
+  const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+
+  if (!tenantId) {
+    return res.status(400).json({ success: false, message: 'Tenant context required' });
+  }
 
   try {
     if (type === 'attendance') {
-      const where = {};
+      const where = { tenantId };
       if (classId) where.classId = classId;
       if (startDate && endDate) {
         where.date = { [sequelize.Sequelize.Op.between]: [startDate, endDate] };
@@ -32,12 +37,13 @@ const getReportData = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'examId query parameter is required for exam reports' });
       }
 
-      const exam = await Exam.findByPk(examId);
+      const exam = await Exam.findOne({ where: { id: examId, tenantId } });
       if (!exam) {
         return res.status(404).json({ success: false, message: 'Exam not found' });
       }
 
       const marks = await Mark.findAll({
+        where: { tenantId },
         include: [
           {
             model: ExamSubject,
@@ -59,6 +65,7 @@ const getReportData = async (req, res, next) => {
 
       // Aggregate: Class average marks
       const classAverages = await Mark.findAll({
+        where: { tenantId },
         include: [
           {
             model: ExamSubject,
@@ -82,6 +89,7 @@ const getReportData = async (req, res, next) => {
     if (type === 'fees') {
       // Group paid vs pending amounts by Class
       const classFees = await Invoice.findAll({
+        where: { tenantId },
         include: [
           {
             model: Student,

@@ -1,5 +1,6 @@
 const { Exam, ExamSubject, Mark, Student, User, Subject, Class, sequelize } = require('../models');
 const { logAudit } = require('../services/auditService');
+const tenantStorage = require('../utils/tenantContext');
 
 // Helper to calculate Grade
 const calculateGrade = (obtained, max) => {
@@ -17,6 +18,11 @@ const calculateGrade = (obtained, max) => {
 const createExam = async (req, res, next) => {
   try {
     const { name, academicYearId, startDate, endDate } = req.body;
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null) || tenantStorage.getStore();
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!name || !academicYearId || !startDate || !endDate) {
       return res.status(400).json({ success: false, message: 'All exam fields are required' });
@@ -28,9 +34,10 @@ const createExam = async (req, res, next) => {
       startDate,
       endDate,
       status: 'DRAFT',
+      tenantId,
     });
 
-    await logAudit(req.user.id, 'CREATE_EXAM', 'Exam', exam.id);
+    await logAudit(req.user.id, 'CREATE_EXAM', 'Exam', exam.id, tenantId);
 
     return res.status(201).json({ success: true, message: 'Exam created in DRAFT status', exam });
   } catch (error) {
@@ -43,7 +50,13 @@ const createExam = async (req, res, next) => {
 // @access  Private
 const getExams = async (req, res, next) => {
   try {
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null) || tenantStorage.getStore();
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
     const exams = await Exam.findAll({
+      where: { tenantId },
       order: [['startDate', 'DESC']],
       include: [
         {
@@ -69,12 +82,17 @@ const addExamSchedule = async (req, res, next) => {
   try {
     const examId = req.params.id;
     const { subjectId, classId, examDate, maxMarks } = req.body;
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null) || tenantStorage.getStore();
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!subjectId || !classId || !examDate || !maxMarks) {
       return res.status(400).json({ success: false, message: 'All schedule details are required' });
     }
 
-    const exam = await Exam.findByPk(examId);
+    const exam = await Exam.findOne({ where: { id: examId, tenantId } });
     if (!exam) {
       return res.status(404).json({ success: false, message: 'Exam not found' });
     }
@@ -85,9 +103,10 @@ const addExamSchedule = async (req, res, next) => {
       classId,
       examDate,
       maxMarks: parseFloat(maxMarks),
+      tenantId,
     });
 
-    await logAudit(req.user.id, 'ADD_EXAM_SCHEDULE', 'ExamSubject', schedule.id);
+    await logAudit(req.user.id, 'ADD_EXAM_SCHEDULE', 'ExamSubject', schedule.id, tenantId);
 
     return res.status(201).json({ success: true, message: 'Subject added to exam schedule', schedule });
   } catch (error) {
@@ -102,13 +121,20 @@ const submitMarks = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
     const { examSubjectId, markings } = req.body; // markings: [{ studentId, marksObtained }]
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null) || tenantStorage.getStore();
+
+    if (!tenantId) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!examSubjectId || !markings || !Array.isArray(markings)) {
+      await transaction.rollback();
       return res.status(400).json({ success: false, message: 'Please provide examSubjectId and markings array' });
     }
 
-    // Fetch the ExamSubject to get max_marks limit
-    const examSubject = await ExamSubject.findByPk(examSubjectId, { transaction });
+    // Fetch the ExamSubject within tenant to get max_marks limit
+    const examSubject = await ExamSubject.findOne({ where: { id: examSubjectId, tenantId }, transaction });
     if (!examSubject) {
       await transaction.rollback();
       return res.status(404).json({ success: false, message: 'Exam subject schedule not found' });
@@ -132,16 +158,16 @@ const submitMarks = async (req, res, next) => {
 
       const grade = calculateGrade(score, maxMarks);
 
-      // Check if student exists
-      const student = await Student.findByPk(studentId, { transaction });
+      // Check if student exists within tenant
+      const student = await Student.findOne({ where: { id: studentId, tenantId }, transaction });
       if (!student) {
         await transaction.rollback();
         return res.status(404).json({ success: false, message: `Student profile not found for ID: ${studentId}` });
       }
 
-      // Check if mark already exists for (examSubjectId, studentId)
+      // Check if mark already exists for (examSubjectId, studentId, tenantId)
       const existingMark = await Mark.findOne({
-        where: { examSubjectId, studentId },
+        where: { examSubjectId, studentId, tenantId },
         transaction,
       });
 
@@ -158,6 +184,7 @@ const submitMarks = async (req, res, next) => {
           marksObtained: score,
           maxMarks,
           grade,
+          tenantId,
         }, { transaction });
         savedMarks.push(mark);
       }
@@ -165,7 +192,7 @@ const submitMarks = async (req, res, next) => {
 
     await transaction.commit();
 
-    await logAudit(req.user.id, 'SUBMIT_MARKS', 'ExamSubject', examSubjectId);
+    await logAudit(req.user.id, 'SUBMIT_MARKS', 'ExamSubject', examSubjectId, tenantId);
 
     return res.json({
       success: true,
@@ -184,24 +211,33 @@ const submitMarks = async (req, res, next) => {
 const getReportCard = async (req, res, next) => {
   try {
     const { studentId } = req.params;
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null) || tenantStorage.getStore();
 
-    // RBAC verification
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
+    // Verify student belongs to this tenant first (prevent IDOR)
+    const targetStudent = await Student.findOne({ where: { id: studentId, tenantId } });
+    if (!targetStudent) {
+      return res.status(404).json({ success: false, message: 'Student not found in this school tenant' });
+    }
+
+    // RBAC verification for Student and Parent
     const role = req.user.role.name;
     if (role === 'Student') {
-      const currentStudent = await Student.findOne({ where: { userId: req.user.id } });
-      if (!currentStudent || currentStudent.id !== studentId) {
+      if (targetStudent.userId !== req.user.id) {
         return res.status(403).json({ success: false, message: 'Unauthorized access to report card' });
       }
     } else if (role === 'Parent') {
-      const isChild = await Student.findOne({ where: { id: studentId, parentId: req.user.id } });
-      if (!isChild) {
+      if (targetStudent.parentId !== req.user.id) {
         return res.status(403).json({ success: false, message: 'Unauthorized access to child report card' });
       }
     }
 
-    // Fetch marks with associated ExamSubject info
+    // Fetch marks with associated ExamSubject info scoped to tenant
     const marks = await Mark.findAll({
-      where: { studentId },
+      where: { studentId, tenantId },
       include: [
         {
           model: ExamSubject,

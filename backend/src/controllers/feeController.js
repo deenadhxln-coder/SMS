@@ -1,4 +1,4 @@
-const { FeeStructure, Invoice, Payment, Student, User, sequelize } = require('../models');
+const { FeeStructure, Invoice, Payment, Student, User, Class, sequelize } = require('../models');
 const { logAudit } = require('../services/auditService');
 const { invalidateDashboardCache } = require('../utils/cacheHelper');
 const { sendToUser } = require('../services/notificationService');
@@ -9,9 +9,20 @@ const { sendToUser } = require('../services/notificationService');
 const createFeeStructure = async (req, res, next) => {
   try {
     const { classId, title, amount, academicYearId } = req.body;
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!classId || !title || !amount || !academicYearId) {
       return res.status(400).json({ success: false, message: 'All fee structure fields are required' });
+    }
+
+    // Verify referenced class belongs to the authenticated tenant
+    const classExists = await Class.findOne({ where: { id: classId, tenantId } });
+    if (!classExists) {
+      return res.status(400).json({ success: false, message: 'Referenced class not found in this school' });
     }
 
     const structure = await FeeStructure.create({
@@ -19,9 +30,11 @@ const createFeeStructure = async (req, res, next) => {
       title,
       amount: parseFloat(amount),
       academicYearId,
+      tenantId,
     });
 
-    await logAudit(req.user.id, 'CREATE_FEE_STRUCTURE', 'FeeStructure', structure.id);
+    await logAudit(req.user.id, 'CREATE_FEE_STRUCTURE', 'FeeStructure', structure.id, tenantId);
+    await invalidateDashboardCache(tenantId);
 
     return res.status(201).json({ success: true, message: 'Fee structure created successfully', structure });
   } catch (error) {
@@ -34,7 +47,13 @@ const createFeeStructure = async (req, res, next) => {
 // @access  Private (Admin/Teacher)
 const getFeeStructures = async (req, res, next) => {
   try {
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
     const structures = await FeeStructure.findAll({
+      where: { tenantId },
       order: [['createdAt', 'DESC']],
     });
     return res.json({ success: true, structures });
@@ -49,31 +68,43 @@ const getFeeStructures = async (req, res, next) => {
 const getInvoices = async (req, res, next) => {
   try {
     const { studentId } = req.query;
-    const whereClause = {};
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
 
-    const role = req.user.role.name;
-    if (role === 'Student') {
-      const student = await Student.findOne({ where: { userId: req.user.id } });
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
+    const whereClause = { tenantId };
+
+    const roleName = req.user.role?.name || req.user.role;
+    if (roleName === 'Student') {
+      const student = await Student.findOne({ where: { userId: req.user.id, tenantId } });
       if (!student) {
         return res.status(404).json({ success: false, message: 'Student profile not found' });
       }
       whereClause.studentId = student.id;
-    } else if (role === 'Parent') {
+    } else if (roleName === 'Parent') {
       if (studentId) {
-        const isChild = await Student.findOne({ where: { id: studentId, parentId: req.user.id } });
+        const isChild = await Student.findOne({ where: { id: studentId, parentId: req.user.id, tenantId } });
         if (!isChild) {
           return res.status(403).json({ success: false, message: 'Unauthorized child access' });
         }
         whereClause.studentId = studentId;
       } else {
         // Fetch all children's invoices
-        const children = await Student.findAll({ where: { parentId: req.user.id } });
+        const children = await Student.findAll({ where: { parentId: req.user.id, tenantId } });
         const childIds = children.map(c => c.id);
         whereClause.studentId = childIds;
       }
     } else {
       // Admin/Teacher
-      if (studentId) whereClause.studentId = studentId;
+      if (studentId) {
+        const studentExists = await Student.findOne({ where: { id: studentId, tenantId } });
+        if (!studentExists) {
+          return res.status(404).json({ success: false, message: 'Student profile not found' });
+        }
+        whereClause.studentId = studentId;
+      }
     }
 
     const invoices = await Invoice.findAll({
@@ -109,20 +140,35 @@ const recordPayment = async (req, res, next) => {
     const invoiceId = req.params.id;
     const { amountPaid, paymentMethod } = req.body;
     const paymentVal = parseFloat(amountPaid);
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+
+    if (!tenantId) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
 
     if (!paymentMethod || isNaN(paymentVal) || paymentVal <= 0) {
+      await transaction.rollback();
       return res.status(400).json({ success: false, message: 'Please provide valid payment method and positive amount' });
     }
 
-    // Fetch Invoice
-    const invoice = await Invoice.findByPk(invoiceId, {
+    // Fetch Invoice with explicit tenantId scoping
+    const invoice = await Invoice.findOne({
+      where: { id: invoiceId, tenantId },
       transaction,
-      include: [{ model: Student, as: 'student', attributes: ['id', 'userId', 'parentId'] }],
+      include: [{ model: Student, as: 'student', attributes: ['id', 'userId', 'parentId', 'tenantId'] }],
     });
 
     if (!invoice) {
       await transaction.rollback();
       return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // Parent role authorization check: Parents may only pay for their own child's invoice
+    const roleName = req.user.role?.name || req.user.role;
+    if (roleName === 'Parent' && invoice.student.parentId !== req.user.id) {
+      await transaction.rollback();
+      return res.status(403).json({ success: false, message: 'Unauthorized payment attempt for another student invoice' });
     }
 
     const totalAmount = parseFloat(invoice.totalAmount);
@@ -151,13 +197,14 @@ const recordPayment = async (req, res, next) => {
     // Generate Transaction Reference
     const transactionRef = `TXN-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Create Payment Log
+    // Create Payment Log with explicit tenantId
     const payment = await Payment.create({
       invoiceId,
       amountPaid: paymentVal,
       paymentMethod,
       transactionRef,
       paidAt: new Date(),
+      tenantId,
     }, { transaction });
 
     // Update Invoice Dues and Status
@@ -169,8 +216,8 @@ const recordPayment = async (req, res, next) => {
     await transaction.commit();
 
     // Audit trace & invalidate cache
-    await logAudit(req.user.id, 'RECORD_PAYMENT', 'Invoice', invoiceId);
-    await invalidateDashboardCache(req.user.tenantId);
+    await logAudit(req.user.id, 'RECORD_PAYMENT', 'Invoice', invoiceId, tenantId);
+    await invalidateDashboardCache(tenantId);
 
     // Emit live Socket.IO receipt notification
     const notificationData = {

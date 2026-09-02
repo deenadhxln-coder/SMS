@@ -29,6 +29,16 @@ const PlatformAuditLog = sequelize.define('PlatformAuditLog', {
   tableName: 'platform_audit_logs',
   timestamps: true,
   updatedAt: false,
+  indexes: [
+    {
+      name: 'idx_platform_audit_admin_created',
+      fields: ['admin_id', 'created_at'],
+    },
+    {
+      name: 'idx_platform_audit_tenant_created',
+      fields: ['tenant_id', 'created_at'],
+    },
+  ],
 });
 
 module.exports = PlatformAuditLog;

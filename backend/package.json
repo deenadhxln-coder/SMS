@@ -6,8 +6,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "vitest run --globals --fileParallelism=false",
+    "test": "vitest run --globals --fileParallelism=false --testTimeout=60000 --hookTimeout=60000",
     "seed": "node seeders/demo-data.js",
+    "db:migrate": "node src/scripts/migrate.js",
+    "db:migrate:status": "node src/scripts/migrate.js status",
+    "db:verify": "node src/scripts/verifyDb.js",
     "db:reset": "node src/utils/resetDb.js"
   },
   "keywords": [],
@@ -26,6 +29,7 @@
     "mysql2": "^3.24.2",
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.3",
+    "umzug": "^3.8.3",
     "uuid": "^14.0.2"
   },
   "devDependencies": {

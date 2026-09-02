@@ -1,7 +1,10 @@
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 process.env.NODE_ENV = 'test';
-process.env.DB_NAME = 'school_management_test';
 process.env.PORT = '5001';
 process.env.JWT_SECRET = 'test_secret_key';
+if (process.env.TEST_DB_NAME) {
+  process.env.DB_NAME = process.env.TEST_DB_NAME;
+}
 
 const request = require('supertest');
 const express = require('express');
@@ -48,9 +51,6 @@ beforeAll(async () => {
   
   const errorHandler = require('../src/middleware/errorHandler');
   app.use(errorHandler);
-  
-  // Setup local server to keep tests self-contained
-  server = app.listen(5001);
 
   // Generate tokens for testing RBAC
   // Login default Super Admin
@@ -59,9 +59,10 @@ beforeAll(async () => {
     .send({ email: 'admin@school.com', password: 'adminpassword' });
   adminToken = adminRes.body.token;
 
-  // Register Teacher
+  // Register Teacher within tenant context
   const teacherRes = await request(app)
     .post('/api/auth/register')
+    .set('Authorization', `Bearer ${adminToken}`)
     .send({
       name: 'Test Teacher',
       email: 'teacher@school.com',
@@ -71,9 +72,10 @@ beforeAll(async () => {
     });
   teacherToken = teacherRes.body.token;
 
-  // Register Parent
+  // Register Parent within tenant context
   const parentRes = await request(app)
     .post('/api/auth/register')
+    .set('Authorization', `Bearer ${adminToken}`)
     .send({
       name: 'Test Parent',
       email: 'parent@school.com',
@@ -83,9 +85,10 @@ beforeAll(async () => {
   parentToken = parentRes.body.token;
   const parentUserId = parentRes.body.user.id;
 
-  // Register Student linked to Parent
+  // Register Student linked to Parent within tenant context
   const studentRes = await request(app)
     .post('/api/auth/register')
+    .set('Authorization', `Bearer ${adminToken}`)
     .send({
       name: 'Test Student',
       email: 'student@school.com',
@@ -95,12 +98,9 @@ beforeAll(async () => {
     });
   studentToken = studentRes.body.token;
   studentId = studentRes.body.user.profile.id;
-});
+}, 60000);
 
-afterAll(async () => {
-  if (server) await server.close();
-  await sequelize.close();
-});
+
 
 describe('School Management System integration tests', () => {
   
@@ -224,13 +224,14 @@ describe('School Management System integration tests', () => {
 
   // 4. Financial Invoice Payments and Transactional Integrity
   it('should execute fee payments, balance calculations, and invoice transitions', async () => {
-    // Create an Invoice manually for testing payments
+    // Create an Invoice manually for testing payments with explicit tenantId
     const invoice = await Invoice.create({
       studentId,
       totalAmount: 1500.00,
       paidAmount: 0.00,
       dueAmount: 1500.00,
-      status: 'UNPAID'
+      status: 'UNPAID',
+      tenantId: 'd0000000-0000-0000-0000-000000000000'
     });
     invoiceId = invoice.id;
 

@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+**/node_modules
+
+# Version Control
+.git
+.gitignore
+
+# Environment & Secrets (Preserve .env.example)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Build Outputs & Logs
+dist
+**/dist
+build
+**/build
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test Coverage & Artifacts
+coverage
+**/coverage
+.system_generated
+.gemini
+
+# OS Metadata
+.DS_Store
+Thumbs.db

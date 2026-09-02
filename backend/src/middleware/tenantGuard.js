@@ -8,14 +8,31 @@ const verifyTenant = async (req, res, next) => {
     }
 
     const { tenantId, role } = req.user;
+    const isSuperAdmin = role === 'Super Admin' || (role && role.name === 'Super Admin');
 
-    // Super Admin has global platform access and defaults to the master tenant context
-    if (role === 'Super Admin' || (role && role.name === 'Super Admin')) {
-      const targetTenantId = req.headers['x-tenant-id'] || 'd0000000-0000-0000-0000-000000000000';
-      tenantStorage.enterWith(targetTenantId);
-      return next();
+    // Super Admin has global platform access and may target a specific tenant context
+    if (isSuperAdmin) {
+      const headerTenantId = req.headers['x-tenant-id'];
+      if (headerTenantId) {
+        const { Tenant } = require('../models');
+        const targetTenant = await Tenant.findByPk(headerTenantId);
+        if (!targetTenant) {
+          return res.status(404).json({ success: false, message: 'Target school tenant not found' });
+        }
+        req.tenant = targetTenant;
+        return tenantStorage.run(targetTenant.id, () => next());
+      }
+      // Super Admin without targeted header defaults to the master default tenant context
+      const defaultTenantId = 'd0000000-0000-0000-0000-000000000000';
+      const { Tenant } = require('../models');
+      const defaultTenant = await Tenant.findByPk(defaultTenantId);
+      if (defaultTenant) {
+        req.tenant = defaultTenant;
+      }
+      return tenantStorage.run(defaultTenantId, () => next());
     }
 
+    // Normal school requests: tenant_id MUST strictly originate from verified user context
     if (!tenantId) {
       return res.status(400).json({ success: false, message: 'Tenant ID context missing' });
     }
@@ -34,9 +51,8 @@ const verifyTenant = async (req, res, next) => {
 
     req.tenant = tenant;
 
-    // Set the tenant context for the current async execution chain
-    tenantStorage.enterWith(tenantId);
-    next();
+    // Run downstream Express handlers inside isolated AsyncLocalStorage tenant context
+    return tenantStorage.run(tenantId, () => next());
   } catch (error) {
     next(error);
   }

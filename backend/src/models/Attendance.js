@@ -39,8 +39,13 @@ const Attendance = sequelize.define('Attendance', {
   tableName: 'attendance',
   indexes: [
     {
+      name: 'uniq_attendance_tenant_student_date',
       unique: true,
-      fields: ['student_id', 'date'],
+      fields: ['tenant_id', 'student_id', 'date'],
+    },
+    {
+      name: 'idx_attendance_tenant_date',
+      fields: ['tenant_id', 'date'],
     },
   ],
 });

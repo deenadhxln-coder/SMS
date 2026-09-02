@@ -5,7 +5,10 @@ const redisClient = require('../config/redis');
 // @route   GET /api/dashboard/summary
 // @access  Private (Admin/Teacher)
 const getDashboardSummary = async (req, res, next) => {
-  const tenantId = req.tenant ? req.tenant.id : 'default';
+  const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+  if (!tenantId) {
+    return res.status(400).json({ success: false, message: 'Tenant context required' });
+  }
   const cacheKey = `tenant:${tenantId}:dashboard:summary`;
   try {
     // 1. Check Redis Cache
@@ -17,13 +20,14 @@ const getDashboardSummary = async (req, res, next) => {
 
     console.log('Redis Cache Miss: Querying MySQL...');
 
-    // 2. Fetch Aggregations from MySQL
-    const totalStudents = await Student.count({ where: { status: 'ACTIVE' } });
-    const totalTeachers = await Teacher.count({ where: { status: 'ACTIVE' } });
-    const totalClasses = await Class.count();
+    // 2. Fetch Aggregations from MySQL with explicit tenantId scoping
+    const totalStudents = await Student.count({ where: { tenantId, status: 'ACTIVE' } });
+    const totalTeachers = await Teacher.count({ where: { tenantId, status: 'ACTIVE' } });
+    const totalClasses = await Class.count({ where: { tenantId } });
 
-    // Financial calculations
+    // Financial calculations with explicit tenantId scoping
     const financialStats = await Invoice.findAll({
+      where: { tenantId },
       attributes: [
         [sequelize.fn('SUM', sequelize.col('total_amount')), 'totalInvoiced'],
         [sequelize.fn('SUM', sequelize.col('paid_amount')), 'totalPaid'],
@@ -37,8 +41,9 @@ const getDashboardSummary = async (req, res, next) => {
     const totalPaid = parseFloat(stats.totalPaid || 0).toFixed(2);
     const totalDue = parseFloat(stats.totalDue || 0).toFixed(2);
 
-    // Recent Activity logs
+    // Recent Activity logs with explicit tenantId scoping
     const recentActivity = await AuditLog.findAll({
+      where: { tenantId },
       limit: 10,
       order: [['timestamp', 'DESC']],
       include: [{ model: User, as: 'user', attributes: ['name', 'email'] }],

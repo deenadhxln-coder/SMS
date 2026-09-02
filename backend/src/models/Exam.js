@@ -38,6 +38,12 @@ const Exam = sequelize.define('Exam', {
   },
 }, {
   tableName: 'exams',
+  indexes: [
+    {
+      name: 'idx_exams_tenant_ay',
+      fields: ['tenant_id', 'academic_year_id'],
+    },
+  ],
 });
 
 module.exports = Exam;

@@ -1,0 +1,117 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ============================================================================
+  # 1. Backend Verification & Tests
+  # ============================================================================
+  backend-test:
+    name: Backend Tests & DB Verification
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_password
+          MYSQL_DATABASE: defaultdb_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping -h localhost -u root -pci_root_password" --health-interval=10s --health-timeout=5s --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Check Database Migrations Status
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: ci_root_password
+          DB_NAME: defaultdb_test
+          TEST_DB_NAME: defaultdb_test
+          ALLOW_DESTRUCTIVE_DB_RESET: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: ci_test_jwt_secret_must_be_long_and_secure_12345
+        run: npm run db:migrate:status -w backend
+
+      - name: Run Backend Test Suite
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: ci_root_password
+          DB_NAME: defaultdb_test
+          TEST_DB_NAME: defaultdb_test
+          ALLOW_DESTRUCTIVE_DB_RESET: "true"
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: ci_test_jwt_secret_must_be_long_and_secure_12345
+        run: npm test -w backend
+
+      - name: Verify Database Schema & Integrity
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: ci_root_password
+          DB_NAME: defaultdb_test
+          TEST_DB_NAME: defaultdb_test
+          REDIS_URL: redis://127.0.0.1:6379
+          JWT_SECRET: ci_test_jwt_secret_must_be_long_and_secure_12345
+        run: npm run db:verify -w backend
+
+  # ============================================================================
+  # 2. Frontend Production Builds
+  # ============================================================================
+  frontend-build:
+    name: Frontend Production Builds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (v20)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Build Super Admin Frontend
+        env:
+          VITE_API_URL: https://api.sms-saas.com/api
+          VITE_WS_URL: https://api.sms-saas.com
+        run: npm run build -w @sms/super-admin
+
+      - name: Build School Portal Frontend
+        env:
+          VITE_API_URL: https://api.sms-saas.com/api
+          VITE_WS_URL: https://api.sms-saas.com
+        run: npm run build -w @sms/school-portal

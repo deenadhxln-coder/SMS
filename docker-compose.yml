@@ -1,0 +1,114 @@
+# ==============================================================================
+# NOTICE: LOCAL & STAGING DEVELOPMENT ONLY
+# This Docker Compose file is intended exclusively for local development and
+# staging test environments. For production deployments, use managed cloud
+# database infrastructure (e.g. AWS RDS / Aiven MySQL) and managed Redis instances.
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Shared MySQL Database (Local Development Only)
+  # ----------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: sms-mysql-local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_dev_password}
+      MYSQL_DATABASE: ${DB_NAME:-school_management}
+      MYSQL_USER: ${DB_USER:-sms_dev}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-sms_dev_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_dev_password}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Shared Redis Cache (Local Development Only)
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: sms-redis-local
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Shared Backend Node.js API
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sms-backend-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production_key_12345}
+      JWT_EXPIRES_IN: 1d
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-sms_dev}
+      DB_PASSWORD: ${DB_PASSWORD:-sms_dev_password}
+      DB_NAME: ${DB_NAME:-school_management}
+      DB_SSL: "false"
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGIN: "http://localhost:5173,http://localhost:5174"
+    ports:
+      - "5000:5000"
+
+  # ----------------------------------------------------------------------------
+  # Super Admin Frontend SPA
+  # ----------------------------------------------------------------------------
+  super-admin:
+    build:
+      context: .
+      dockerfile: apps/super-admin/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000/api
+        VITE_WS_URL: http://localhost:5000
+    container_name: sms-super-admin-local
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+
+  # ----------------------------------------------------------------------------
+  # School Portal Frontend SPA
+  # ----------------------------------------------------------------------------
+  school-portal:
+    build:
+      context: .
+      dockerfile: apps/school-portal/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:5000/api
+        VITE_WS_URL: http://localhost:5000
+    container_name: sms-school-portal-local
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_dev_data:
+  redis_dev_data:

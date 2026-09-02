@@ -40,8 +40,13 @@ const Mark = sequelize.define('Mark', {
   tableName: 'marks',
   indexes: [
     {
+      name: 'uniq_marks_tenant_exam_sub_student',
       unique: true,
-      fields: ['exam_subject_id', 'student_id'],
+      fields: ['tenant_id', 'exam_subject_id', 'student_id'],
+    },
+    {
+      name: 'idx_marks_tenant_exam_sub',
+      fields: ['tenant_id', 'exam_subject_id'],
     },
   ],
 });

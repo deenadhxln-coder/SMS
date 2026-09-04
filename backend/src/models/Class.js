@@ -13,7 +13,7 @@ const Class = sequelize.define('Class', {
     primaryKey: true,
   },
   academicYearId: {
-    type: DataTypes.STRING,
+    type: DataTypes.UUID,
     allowNull: false,
     field: 'academic_year_id',
   },
@@ -23,6 +23,23 @@ const Class = sequelize.define('Class', {
   },
 }, {
   tableName: 'classes',
+});
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+Class.addHook('beforeValidate', async (instance) => {
+  if (instance.academicYearId && typeof instance.academicYearId === 'string' && !UUID_REGEX.test(instance.academicYearId) && instance.tenantId) {
+    const AcademicYear = require('./AcademicYear');
+    const [ay] = await AcademicYear.findOrCreate({
+      where: { tenantId: instance.tenantId, name: instance.academicYearId },
+      defaults: {
+        startDate: '2026-06-01',
+        endDate: '2027-05-31',
+        isCurrent: true,
+        status: 'ACTIVE',
+      },
+    });
+    instance.academicYearId = ay.id;
+  }
 });
 
 module.exports = Class;

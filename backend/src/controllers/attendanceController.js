@@ -21,6 +21,17 @@ const markAttendance = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please provide classId, date and markings array' });
     }
 
+    // Future-date validation: reject attendance dates beyond today
+    const todayUtc = new Date().toISOString().split('T')[0];
+    const localToday = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const maxAllowedDate = localToday > todayUtc ? localToday : todayUtc;
+    const inputDateStr = typeof date === 'string' ? date.split('T')[0] : new Date(date).toISOString().split('T')[0];
+
+    if (inputDateStr > maxAllowedDate) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: 'Cannot record attendance for future dates' });
+    }
+
     // Verify class belongs to the authenticated school tenant
     const classExists = await Class.findOne({ where: { id: classId, tenantId }, transaction });
     if (!classExists) {

@@ -6,11 +6,12 @@ import PageContainer from '../../components/layout/PageContainer';
 
 
 
-import { Plus, FileText, UserPlus, CheckCircle, BookOpen } from 'lucide-react';
+import { Plus, FileText, UserPlus, CheckCircle, BookOpen, Printer } from 'lucide-react';
+import ReportCardPrintModal from './ReportCardPrintModal';
 
 const ExamsPage = () => {
   const { user } = useAuthStore();
-  const isTeacherOrAdmin = ['Super Admin', 'School Admin', 'Teacher'].includes(user.role);
+  const isTeacherOrAdmin = ['School Admin', 'Teacher'].includes(user.role);
 
   // General States
   const [exams, setExams] = useState([]);
@@ -21,6 +22,8 @@ const ExamsPage = () => {
   // Student report card states
   const [reportCard, setReportCard] = useState([]);
   const [targetStudentId, setTargetStudentId] = useState('');
+  const [studentInfo, setStudentInfo] = useState(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Modals Control
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
@@ -67,21 +70,36 @@ const ExamsPage = () => {
     try {
       setLoading(true);
       let studId = targetStudentId;
+      let resolvedStudent = null;
+
       if (user.role === 'Student') {
-        const studentProfile = await api.get(`/students?limit=1`);
-        const matchingStudent = studentProfile.data.students.find(s => s.userId === user.id);
-        if (matchingStudent) {
-          studId = matchingStudent.id;
+        studId = user.student?.id || user.profile?.id;
+        if (user.student) {
+          resolvedStudent = user.student;
         }
       } else if (user.role === 'Parent') {
-        const studRes = await api.get('/students');
-        const firstChild = studRes.data.students[0];
-        if (firstChild) studId = firstChild.id;
+        try {
+          const childrenRes = await api.get('/students/my-children');
+          const children = childrenRes.data?.children || [];
+          if (children.length > 0) {
+            studId = children[0].id;
+            resolvedStudent = children[0];
+          }
+        } catch (e) {
+          console.error('Failed to fetch parent children:', e);
+        }
       }
 
       if (studId) {
+        if (!resolvedStudent) {
+          try {
+            const studRes = await api.get(`/students/${studId}`);
+            resolvedStudent = studRes.data?.student;
+          } catch (_) {}
+        }
+        setStudentInfo(resolvedStudent);
         const res = await api.get(`/exams/report-card/${studId}`);
-        setReportCard(res.data.marks);
+        setReportCard(res.data.marks || []);
       }
     } catch (err) {
       console.error('Failed to fetch report card:', err);
@@ -181,6 +199,10 @@ const ExamsPage = () => {
               New Exam
             </Button>
           </div>
+        ) : reportCard.length > 0 ? (
+          <Button variant="primary" onClick={() => setIsPrintModalOpen(true)} icon={<Printer size={16} />}>
+            Print Report Card
+          </Button>
         ) : null
       }
     >
@@ -238,10 +260,16 @@ const ExamsPage = () => {
                           </td>
                           <td className="py-3">{sched.class?.name}</td>
                           <td className="py-3">{sched.examDate}</td>
-                          <td className="py-3 font-bold">{sched.maxMarks}</td>
+                          <td className="py-3">{sched.maxMarks}</td>
                           <td className="py-3 text-right">
-                            <Button variant="outline" onClick={() => handleOpenMarksModal(sched)} className="px-3 py-1.5 text-2xs">
-                              Enter Marks
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="px-2.5 py-1 text-2xs"
+                              onClick={() => handleOpenMarksModal(sched)}
+                              icon={<Plus size={12} />}
+                            >
+                              Marks
                             </Button>
                           </td>
                         </tr>
@@ -255,6 +283,21 @@ const ExamsPage = () => {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">
+                {studentInfo?.user?.name ? `${studentInfo.user.name}'s Academic Report Card` : 'Student Academic Report Card'}
+              </h3>
+              {studentInfo?.admissionNo && (
+                <p className="text-2xs text-slate-400">Admission: {studentInfo.admissionNo} {studentInfo?.class?.name ? `| Class: ${studentInfo.class.name}` : ''}</p>
+              )}
+            </div>
+            {reportCard.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setIsPrintModalOpen(true)} icon={<Printer size={14} />}>
+                Print Report Card
+              </Button>
+            )}
+          </div>
           {reportCard.length === 0 ? (
             <div className="py-20 text-center text-slate-400 font-medium">
               No report cards or exam results published for this student.
@@ -406,6 +449,14 @@ const ExamsPage = () => {
           ))}
         </div>
       </Modal>
+
+      {/* REPORT CARD PRINT MODAL */}
+      <ReportCardPrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        student={studentInfo}
+        marks={reportCard}
+      />
 
     </PageContainer>
   );

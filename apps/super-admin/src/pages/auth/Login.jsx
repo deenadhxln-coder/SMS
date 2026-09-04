@@ -3,11 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useNavigate } from 'react-router-dom';
+import { Input, Button } from '@sms/ui-kit';
 import useAuthStore from '@sms/auth';
 import api from '@sms/api-client';
-import { Input, Button } from '@sms/ui-kit';
+import { Server, Lock, Mail, AlertTriangle, ShieldCheck } from 'lucide-react';
 
-// Validation Schema
 const loginSchema = z.object({
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
@@ -20,7 +20,11 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
-    resolver: zodResolver(loginSchema)
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: ''
+    }
   });
 
   const onSubmit = async (data) => {
@@ -29,16 +33,16 @@ const Login = () => {
     try {
       const response = await api.post('/auth/login', data);
       const { user, token } = response.data;
-      
+
       if (user.role !== 'Super Admin') {
-        throw new Error('Access denied. Super Admin role required.');
+        throw new Error('Access denied. Super Administrator credentials required.');
       }
 
       loginUser(user, token);
       navigate('/');
     } catch (error) {
       console.error('Login failed:', error);
-      const msg = error.response?.data?.message || error.message || 'Connection failed. Please check credentials.';
+      const msg = error.response?.data?.message || error.message || 'Authentication failed. Please verify credentials.';
       setServerError(msg);
     } finally {
       setLoading(false);
@@ -46,68 +50,96 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      {/* Decorative gradient blur backdrop */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full filter blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-500/10 rounded-full filter blur-3xl pointer-events-none"></div>
-
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800/80 rounded-3xl p-8 shadow-2xl relative z-10 animate-fade-in text-left">
-        {/* Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex p-3 bg-purple-500/10 rounded-2xl mb-4 border border-purple-500/20 text-purple-400 font-extrabold text-sm uppercase tracking-wider">
-            SaaS Console
-          </div>
-          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-purple-400 via-fuchsia-400 to-indigo-400 bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-between p-6 sm:p-10 relative selection:bg-indigo-500/30 selection:text-white">
+      
+      {/* Top Header Brand */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-indigo-600/30">
+          <Server size={18} />
+        </div>
+        <div className="text-left">
+          <span className="text-xs font-black tracking-wider text-white uppercase block">
+            SMS Platform
+          </span>
+          <span className="text-[10px] font-semibold text-indigo-400 block tracking-wide uppercase">
             Control Center
-          </h1>
-          <p className="text-sm font-semibold text-slate-400">
-            Sign in to manage plans, tenants, and system audits.
+          </span>
+        </div>
+      </div>
+
+      {/* Center Auth Card */}
+      <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl text-left relative z-10 animate-fade-in space-y-6">
+        
+        <div>
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            Platform Sign In
+          </h2>
+          <p className="text-xs text-slate-400 mt-1">
+            Access global multi-tenant operations and subscription governance
           </p>
         </div>
 
         {serverError && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-semibold text-red-400 animate-fade-in">
-            {serverError}
+          <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs font-semibold text-rose-400 flex items-start gap-2.5 animate-fade-in">
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>{serverError}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <Input
-            label="Super Admin Email"
-            type="email"
-            placeholder="admin@platform.com"
-            error={errors.email}
-            required
-            className="text-slate-300"
-            {...register('email')}
-          />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Super Admin Email Address
+            </label>
+            <input
+              type="email"
+              placeholder="admin@school.com"
+              {...register('email')}
+              className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+            />
+            {errors.email && (
+              <p className="text-[11px] text-rose-400 font-medium mt-1">{errors.email.message}</p>
+            )}
+          </div>
 
-          <Input
-            label="Password"
-            type="password"
-            placeholder="••••••••"
-            error={errors.password}
-            required
-            className="text-slate-300"
-            {...register('password')}
-          />
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              Password
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              {...register('password')}
+              className="w-full px-3.5 py-2.5 bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl text-xs font-medium focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+            />
+            {errors.password && (
+              <p className="text-[11px] text-rose-400 font-medium mt-1">{errors.password.message}</p>
+            )}
+          </div>
 
           <Button
             type="submit"
             variant="primary"
             loading={loading}
-            className="w-full mt-2 !bg-gradient-to-r !from-purple-600 !to-fuchsia-600 !hover:from-purple-500 !hover:to-fuchsia-500 border-none"
+            className="w-full !py-2.5 !text-xs !font-bold mt-2"
           >
-            Authenticate
+            Authenticate & Access Console
           </Button>
         </form>
 
-        <div className="mt-8 text-center border-t border-slate-800/80 pt-6">
-          <p className="text-xs font-semibold text-slate-500">
-            Unauthorized access is strictly prohibited and subject to monitoring.
-          </p>
+        <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck size={14} className="text-indigo-400" /> Authorized personnel only
+          </span>
+          <span>SaaS v2.0</span>
         </div>
       </div>
+
+      {/* Footer */}
+      <div className="text-center text-[11px] text-slate-600">
+        Multi-Tenant School Management Platform • Operational Control Center
+      </div>
+
     </div>
   );
 };

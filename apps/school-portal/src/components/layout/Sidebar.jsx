@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, GraduationCap, Bookmark, BookOpen,
   CalendarCheck, ClipboardSignature, CreditCard, FileSpreadsheet, 
-  Settings, LogOut, Menu 
+  Settings, LogOut, Menu, Megaphone, ShieldCheck 
 } from 'lucide-react';
 import useAuthStore from '@sms/auth';
 
@@ -67,6 +67,18 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
         label: 'Reports & Analytics',
         icon: <FileSpreadsheet size={20} />,
         roles: ['School Admin', 'Teacher']
+      },
+      {
+        path: '/announcements',
+        label: 'Announcements',
+        icon: <Megaphone size={20} />,
+        roles: ['School Admin', 'Teacher', 'Student', 'Parent']
+      },
+      {
+        path: '/audit-logs',
+        label: 'Audit Trail',
+        icon: <ShieldCheck size={20} />,
+        roles: ['School Admin']
       },
       {
         path: '/settings',

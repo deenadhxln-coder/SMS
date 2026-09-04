@@ -20,8 +20,19 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
 }));
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(express.json({ 
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // Sanitized HTTP Request Logger (logs method, path, status, latency without exposing bodies, queries or secrets)
 app.use((req, res, next) => {
@@ -44,6 +55,7 @@ const { verifyTenant } = require('./middleware/tenantGuard');
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/superadmin', require('./routes/superAdminRoutes'));
+app.use('/api/billing', require('./routes/billingRoutes'));
 app.use('/api/students', protect, verifyTenant, require('./routes/studentRoutes'));
 app.use('/api/teachers', protect, verifyTenant, require('./routes/teacherRoutes'));
 app.use('/api/academics', protect, verifyTenant, require('./routes/academicsRoutes'));
@@ -52,6 +64,9 @@ app.use('/api/exams', protect, verifyTenant, require('./routes/examRoutes'));
 app.use('/api/fees', protect, verifyTenant, require('./routes/feeRoutes'));
 app.use('/api/dashboard', protect, verifyTenant, require('./routes/dashboardRoutes'));
 app.use('/api/reports', protect, verifyTenant, require('./routes/reportsRoutes'));
+app.use('/api/announcements', protect, verifyTenant, require('./routes/announcementRoutes'));
+app.use('/api/audit-logs', protect, verifyTenant, require('./routes/auditRoutes'));
+app.use('/api/academic-years', protect, verifyTenant, require('./routes/academicYearRoutes'));
 
 const redisClient = require('./config/redis');
 
@@ -140,6 +155,12 @@ const startServer = async () => {
       console.log(` SMS Server running in [${config.nodeEnv}] mode`);
       console.log(` API Endpoint: http://localhost:${port}`);
       console.log(` Socket Server initialized & listening`);
+      const isRzpKeyConfigured = Boolean(config.razorpay.keyId && config.razorpay.keyId !== 'rzp_test_placeholder_key_id');
+      const isRzpSecretConfigured = Boolean(config.razorpay.keySecret && config.razorpay.keySecret !== 'rzp_test_placeholder_key_secret');
+      const isRzpWebhookConfigured = Boolean(config.razorpay.webhookSecret && config.razorpay.webhookSecret !== 'rzp_test_placeholder_webhook_secret');
+      console.log(` Razorpay Key ID configured: ${isRzpKeyConfigured}`);
+      console.log(` Razorpay Key Secret configured: ${isRzpSecretConfigured}`);
+      console.log(` Razorpay Webhook Secret configured: ${isRzpWebhookConfigured}`);
       console.log(`========================================`);
     });
   } catch (error) {

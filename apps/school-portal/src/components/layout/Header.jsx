@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { Bell, User, Calendar, ChevronDown } from 'lucide-react';
 import useAuthStore from '@sms/auth';
@@ -8,6 +9,7 @@ const Header = () => {
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [academicYear, setAcademicYear] = useState('2026-2027');
+  const [socketStatus, setSocketStatus] = useState('connecting');
 
   useEffect(() => {
     if (!token) return;
@@ -15,6 +17,14 @@ const Header = () => {
     // Connect to WebSocket server
     const socket = io(import.meta.env.VITE_WS_URL || 'http://localhost:5000', {
       auth: { token }
+    });
+
+    socket.on('connect', () => {
+      setSocketStatus('connected');
+    });
+
+    socket.on('disconnect', () => {
+      setSocketStatus('reconnecting');
     });
 
     // Listen for fee payment confirmations
@@ -45,6 +55,7 @@ const Header = () => {
 
     socket.on('connect_error', (err) => {
       console.warn('WebSocket Connection Error:', err.message);
+      setSocketStatus('disconnected');
     });
 
     return () => {
@@ -72,8 +83,31 @@ const Header = () => {
       </div>
 
       {/* Utilities */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
         
+        {/* Real-time Connection Status Indicator */}
+        <div 
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-xl text-3xs font-bold select-none"
+          title={`Real-time network sync: ${socketStatus}`}
+        >
+          {socketStatus === 'connected' ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-slate-600">Live</span>
+            </>
+          ) : socketStatus === 'reconnecting' ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+              <span className="text-amber-700">Reconnecting</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span className="text-slate-500">Offline</span>
+            </>
+          )}
+        </div>
+
         {/* Academic Year Selector */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold text-slate-600">
           <Calendar size={14} className="text-slate-400" />
@@ -122,6 +156,15 @@ const Header = () => {
                     </div>
                   ))
                 )}
+              </div>
+              <div className="p-2 bg-slate-50 border-t border-slate-100 text-center">
+                <Link
+                  to="/announcements"
+                  onClick={() => setShowNotifDropdown(false)}
+                  className="text-2xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                >
+                  View All Announcements →
+                </Link>
               </div>
             </div>
           )}

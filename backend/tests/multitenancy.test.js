@@ -41,6 +41,9 @@ beforeAll(async () => {
   app.use('/api/fees', protect, verifyTenant, require('../src/routes/feeRoutes'));
   app.use('/api/dashboard', protect, verifyTenant, require('../src/routes/dashboardRoutes'));
   app.use('/api/reports', protect, verifyTenant, require('../src/routes/reportsRoutes'));
+  app.use('/api/announcements', protect, verifyTenant, require('../src/routes/announcementRoutes'));
+  app.use('/api/audit-logs', protect, verifyTenant, require('../src/routes/auditRoutes'));
+  app.use('/api/academic-years', protect, verifyTenant, require('../src/routes/academicYearRoutes'));
 
   const redisClient = require('../src/config/redis');
   app.get('/health', (req, res) => {
@@ -920,6 +923,92 @@ describe('Phase 7 Security Hardening Tests (SEC-01, SEC-02, SEC-03)', () => {
     expect(lastRes.body.message).toContain('Too many login attempts from this IP');
   });
 });
+
+describe('Phase 6 Parent-Child Authorization & Scope Tests', () => {
+  let parentToken;
+  let parentUserId;
+  let childStudentId;
+
+  beforeAll(async () => {
+    // 1. Register a Parent in School B (Premium Tier)
+    const parentEmail = `parent_${Date.now()}@schoolb.com`;
+    const parentRes = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', `Bearer ${schoolB_Token}`)
+      .send({
+        name: 'Jane Doe Parent',
+        email: parentEmail,
+        password: 'password123',
+        roleName: 'Parent'
+      });
+    expect(parentRes.status).toBe(201);
+    parentToken = parentRes.body.token;
+    parentUserId = parentRes.body.user.id;
+
+    // 2. Create class and section in School B
+    const classRes = await request(app)
+      .post('/api/academics/classes')
+      .set('Authorization', `Bearer ${schoolB_Token}`)
+      .send({ name: `Grade PT-${Date.now()}`, academicYearId: '2026-2027' });
+    expect(classRes.status).toBe(201);
+    const testClassId = classRes.body.class.id;
+
+    const sectionRes = await request(app)
+      .post('/api/academics/sections')
+      .set('Authorization', `Bearer ${schoolB_Token}`)
+      .send({ name: 'A', classId: testClassId });
+    expect(sectionRes.status).toBe(201);
+    const testSectionId = sectionRes.body.section.id;
+
+    // 3. Create a student in School B with parentId = parentUserId
+    const studentRes = await request(app)
+      .post('/api/students')
+      .set('Authorization', `Bearer ${schoolB_Token}`)
+      .send({
+        name: 'Timmy Doe Child',
+        email: `timmy_${Date.now()}@schoolb.com`,
+        password: 'password123',
+        classId: testClassId,
+        sectionId: testSectionId,
+        parentId: parentUserId
+      });
+    expect(studentRes.status).toBe(201);
+    childStudentId = studentRes.body.student.id;
+  });
+
+  it('1. Authenticated parent can retrieve their own children in their tenant via GET /api/students/my-children', async () => {
+    const res = await request(app)
+      .get('/api/students/my-children')
+      .set('Authorization', `Bearer ${parentToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.children)).toBe(true);
+    expect(res.body.children.length).toBe(1);
+    expect(res.body.children[0].id).toBe(childStudentId);
+    expect(res.body.children[0].user.name).toBe('Timmy Doe Child');
+  });
+
+  it('2. Non-parent role (e.g. School Admin) is rejected with 403 Forbidden', async () => {
+    const res = await request(app)
+      .get('/api/students/my-children')
+      .set('Authorization', `Bearer ${schoolB_Token}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('3. Unauthenticated request is rejected with 401 Unauthorized', async () => {
+    const res = await request(app)
+      .get('/api/students/my-children');
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+});
+
+
+
 
 
 

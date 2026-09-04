@@ -3,14 +3,14 @@ import React, { useEffect, useState } from 'react';
 import api from '@sms/api-client';
 import useAuthStore from '@sms/auth';
 import PageContainer from '../../components/layout/PageContainer';
+import { exportToCSV } from '../../utils/csvExport';
 
-
-
-import { CreditCard, Receipt, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { CreditCard, Receipt, Plus, CheckCircle, AlertCircle, Download, Printer } from 'lucide-react';
+import PaymentReceiptModal from './PaymentReceiptModal';
 
 const FeesPage = () => {
   const { user } = useAuthStore();
-  const isAdmin = ['Super Admin', 'School Admin'].includes(user.role);
+  const isAdmin = user.role === 'School Admin';
   const isParent = user.role === 'Parent';
 
   // States
@@ -21,7 +21,16 @@ const FeesPage = () => {
   // Modal Control
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isStructModalOpen, setIsStructModalOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [selectedReceipt, setSelectedReceipt] = useState({ invoice: null, payment: null });
+
+  const handleOpenReceipt = (invoice, payment = null) => {
+    const targetPayment = payment || (invoice.payments && invoice.payments.length > 0 ? invoice.payments[0] : null);
+    if (!targetPayment) return;
+    setSelectedReceipt({ invoice, payment: targetPayment });
+    setIsReceiptModalOpen(true);
+  };
 
   // Form states
   const [payForm, setPayForm] = useState({ amountPaid: '', paymentMethod: 'Card' });
@@ -97,16 +106,38 @@ const FeesPage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    const columns = [
+      { label: 'Invoice ID', accessor: (row) => row.id },
+      { label: 'Student Name', accessor: (row) => row.student?.user?.name || 'Student' },
+      { label: 'Admission No', accessor: (row) => row.student?.admissionNo || '' },
+      { label: 'Total Amount', accessor: (row) => parseFloat(row.totalAmount || 0).toFixed(2) },
+      { label: 'Paid Amount', accessor: (row) => parseFloat(row.paidAmount || 0).toFixed(2) },
+      { label: 'Due Amount', accessor: (row) => parseFloat(row.dueAmount || 0).toFixed(2) },
+      { label: 'Status', key: 'status' }
+    ];
+    exportToCSV(invoices, columns, 'tuition_invoices_ledger');
+  };
+
   return (
     <PageContainer
       title="Fees & Accounts"
       description={isAdmin ? "Configure fee schedules and monitor outstanding student collections" : "Track pending invoices and view payments histories"}
-      action={
-        isAdmin ? (
-          <Button variant="primary" onClick={() => setIsStructModalOpen(true)} icon={<Plus size={18} />}>
-            Create Fee Structure
+      actions={
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            disabled={!invoices.length}
+          >
+            <Download size={16} className="mr-2" /> Export CSV
           </Button>
-        ) : null
+          {isAdmin && (
+            <Button variant="primary" onClick={() => setIsStructModalOpen(true)}>
+              <Plus size={16} className="mr-2" /> Create Fee Structure
+            </Button>
+          )}
+        </div>
       }
     >
       {message.text && (
@@ -166,13 +197,25 @@ const FeesPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {inv.status !== 'PAID' && (isAdmin || isParent) ? (
-                            <Button variant="outline" onClick={() => handleOpenPayModal(inv)} className="px-3 py-1.5 text-2xs" icon={<CreditCard size={14} />}>
-                              Pay Invoice
-                            </Button>
-                          ) : (
-                            <span className="text-2xs text-slate-400 font-bold">Processed</span>
-                          )}
+                          <div className="flex items-center justify-end gap-2">
+                            {inv.payments && inv.payments.length > 0 && (
+                              <Button 
+                                variant="outline" 
+                                onClick={() => handleOpenReceipt(inv)} 
+                                className="px-2.5 py-1.5 text-2xs" 
+                                icon={<Printer size={14} />}
+                              >
+                                Receipt
+                              </Button>
+                            )}
+                            {inv.status !== 'PAID' && (isAdmin || isParent) ? (
+                              <Button variant="outline" onClick={() => handleOpenPayModal(inv)} className="px-2.5 py-1.5 text-2xs" icon={<CreditCard size={14} />}>
+                                Pay Invoice
+                              </Button>
+                            ) : (!inv.payments || inv.payments.length === 0) ? (
+                              <span className="text-2xs text-slate-400 font-bold">Processed</span>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -297,6 +340,15 @@ const FeesPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* PAYMENT RECEIPT MODAL */}
+      <PaymentReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        invoice={selectedReceipt.invoice}
+        payment={selectedReceipt.payment}
+        student={selectedReceipt.invoice?.student}
+      />
 
     </PageContainer>
   );

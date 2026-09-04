@@ -2,6 +2,7 @@ const { User, Teacher, Role, SubscriptionPlan, sequelize } = require('../models'
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const { logAudit } = require('../services/auditService');
+const { invalidateDashboardCache } = require('../utils/cacheHelper');
 
 // @desc    Get all teachers
 // @route   GET /api/teachers
@@ -163,6 +164,8 @@ const createTeacher = async (req, res, next) => {
 
     await transaction.commit();
 
+    await invalidateDashboardCache(tenantId);
+
     await logAudit(req.user.id, 'CREATE_TEACHER', 'Teacher', teacher.id, tenantId);
 
     return res.status(201).json({
@@ -226,6 +229,8 @@ const updateTeacher = async (req, res, next) => {
 
     await transaction.commit();
 
+    await invalidateDashboardCache(tenantId);
+
     await logAudit(req.user.id, 'UPDATE_TEACHER', 'Teacher', teacher.id, tenantId);
 
     return res.json({
@@ -269,6 +274,8 @@ const deleteTeacher = async (req, res, next) => {
     }
 
     await transaction.commit();
+
+    await invalidateDashboardCache(tenantId);
 
     await logAudit(req.user.id, 'DELETE_TEACHER_SOFT', 'Teacher', teacher.id, tenantId);
 

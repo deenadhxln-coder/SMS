@@ -86,6 +86,44 @@ const getStudents = async (req, res, next) => {
   }
 };
 
+// @desc    Get children belonging to authenticated parent
+// @route   GET /api/students/my-children
+// @access  Private (Parent)
+const getMyChildren = async (req, res, next) => {
+  try {
+    const tenantId = req.user?.tenantId || (req.tenant ? req.tenant.id : null);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant context required' });
+    }
+
+    const children = await Student.findAll({
+      where: { parentId: req.user.id, tenantId },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'email', 'status']
+        },
+        {
+          model: Class,
+          as: 'class',
+          attributes: ['id', 'name', 'academicYearId']
+        },
+        {
+          model: Section,
+          as: 'section',
+          attributes: ['id', 'name']
+        }
+      ],
+      order: [['createdAt', 'ASC']]
+    });
+
+    return res.json({ success: true, children });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Get student by ID
 // @route   GET /api/students/:id
 // @access  Private (Admin/Teacher/Student/Parent)
@@ -421,6 +459,7 @@ const deleteStudent = async (req, res, next) => {
 
 module.exports = {
   getStudents,
+  getMyChildren,
   getStudentById,
   createStudent,
   updateStudent,

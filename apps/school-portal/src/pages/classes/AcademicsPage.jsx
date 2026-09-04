@@ -1,15 +1,30 @@
 import { Button, Modal, Input, Table } from '@sms/ui-kit';
 import React, { useEffect, useState } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
+import useAuthStore from '@sms/auth';
 import api from '@sms/api-client';
 import PageContainer from '../../components/layout/PageContainer';
-
-
-
+import WeeklyTimetableGrid from './WeeklyTimetableGrid';
 
 import { Plus, Bookmark, Layers, BookOpen, Link, Calendar } from 'lucide-react';
 
 const AcademicsPage = () => {
-  const [activeTab, setActiveTab] = useState('classes'); // classes, sections, subjects, mappings, timetable
+  const { user } = useAuthStore();
+  const roleName = user?.role?.name || user?.role || '';
+  const isAdmin = roleName === 'Super Admin' || roleName === 'School Admin';
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+
+  const VALID_TABS = ['classes', 'sections', 'subjects', 'mappings', 'timetable'];
+  const queryTab = searchParams.get('tab');
+  const defaultTab = location.pathname.includes('/subjects') ? 'subjects' : 'classes';
+  const activeTab = VALID_TABS.includes(queryTab) ? queryTab : defaultTab;
+
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab });
+  };
+
   const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -17,6 +32,10 @@ const AcademicsPage = () => {
   const [timetables, setTimetables] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Timetable filter states
+  const [timetableClassId, setTimetableClassId] = useState('');
+  const [timetableTeacherId, setTimetableTeacherId] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('');
@@ -44,9 +63,13 @@ const AcademicsPage = () => {
         const res = await api.get('/academics/class-subjects');
         setMappings(res.data.mappings);
       } else if (activeTab === 'timetable') {
-        const res = await api.get('/academics/timetable');
+        const params = {};
+        if (timetableClassId) params.classId = timetableClassId;
+        if (timetableTeacherId) params.teacherId = timetableTeacherId;
+        const res = await api.get('/academics/timetable', { params });
         setTimetables(res.data.timetables);
       }
+
 
       const tRes = await api.get('/teachers');
       setTeachers(tRes.data.teachers);
@@ -65,7 +88,7 @@ const AcademicsPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, timetableClassId, timetableTeacherId]);
 
   const handleOpenAddModal = () => {
     setModalError('');
@@ -220,36 +243,20 @@ const AcademicsPage = () => {
       )}
 
       {activeTab === 'timetable' && (
-        <Table
-          columns={[
-            { header: 'Class', accessor: (row) => row.class?.name },
-            { header: 'Subject', accessor: (row) => row.subject?.name },
-            { header: 'Teacher', accessor: (row) => row.teacher?.user?.name },
-            { header: 'Day', accessor: 'dayOfWeek' },
-            { header: 'Start Time', accessor: 'startTime' },
-            { header: 'End Time', accessor: 'endTime' },
-            { header: 'Room', accessor: 'roomNumber', render: (val) => val || 'N/A' },
-            { 
-              header: 'Actions', 
-              accessor: 'id',
-              render: (val) => (
-                <Button 
-                  variant="ghost" 
-                  onClick={async () => {
-                    if (window.confirm('Delete this timetable slot?')) {
-                      await api.delete(`/academics/timetable/${val}`);
-                      fetchData();
-                    }
-                  }}
-                  className="p-1.5 text-rose-600 hover:bg-rose-50"
-                >
-                  Delete
-                </Button>
-              )
-            }
-          ]}
-          data={timetables}
+        <WeeklyTimetableGrid
+          timetables={timetables}
           loading={loading}
+          classes={classes}
+          teachers={teachers}
+          selectedClassId={timetableClassId}
+          onClassChange={setTimetableClassId}
+          selectedTeacherId={timetableTeacherId}
+          onTeacherChange={setTimetableTeacherId}
+          onDeleteSlot={async (slotId) => {
+            await api.delete(`/academics/timetable/${slotId}`);
+            fetchData();
+          }}
+          isAdmin={isAdmin}
         />
       )}
 

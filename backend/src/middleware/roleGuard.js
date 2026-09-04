@@ -7,7 +7,7 @@ const authorize = (...allowedRoles) => {
       });
     }
 
-    const roleName = req.user.role.name;
+    const roleName = typeof req.user.role === 'object' && req.user.role ? req.user.role.name : req.user.role;
 
     if (!allowedRoles.includes(roleName)) {
       return res.status(403).json({

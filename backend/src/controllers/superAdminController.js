@@ -22,7 +22,7 @@ const getTenants = async (req, res, next) => {
 const createTenant = async (req, res, next) => {
   const transaction = await sequelize.transaction();
   try {
-    const { schoolName, slug, logoUrl, planType, adminName, adminEmail, adminPassword } = req.body;
+    const { schoolName, slug, logoUrl, planType, contactEmail, adminName, adminEmail, adminPassword } = req.body;
 
     if (!schoolName || !slug || !adminName || !adminEmail || !adminPassword) {
       return res.status(400).json({ success: false, message: 'Please provide schoolName, slug, adminName, adminEmail and adminPassword' });
@@ -59,10 +59,12 @@ const createTenant = async (req, res, next) => {
       slug,
       logoUrl: logoUrl || null,
       planType: planType || 'FREE',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      contactEmail: contactEmail || adminEmail,
+      createdByAdminId: req.user?.id || null
     }, { transaction });
 
-    // 2. Hash Password and Create Admin User
+    // 2. Hash Password and Create Initial School Admin User
     const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const adminUser = await User.create({
       name: adminName,
@@ -71,6 +73,17 @@ const createTenant = async (req, res, next) => {
       roleId: adminRole.id,
       status: 'ACTIVE',
       tenantId: tenant.id
+    }, { transaction });
+
+    // 3. Create Default Active Academic Year
+    const { AcademicYear } = require('../models');
+    await AcademicYear.create({
+      tenantId: tenant.id,
+      name: '2026-2027',
+      startDate: '2026-06-01',
+      endDate: '2027-05-31',
+      isCurrent: true,
+      status: 'ACTIVE',
     }, { transaction });
 
     await transaction.commit();

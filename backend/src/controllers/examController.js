@@ -1,4 +1,4 @@
-const { Exam, ExamSubject, Mark, Student, User, Subject, Class, sequelize } = require('../models');
+const { Exam, ExamSubject, Mark, Student, User, Subject, Class, AcademicYear, sequelize } = require('../models');
 const { logAudit } = require('../services/auditService');
 const tenantStorage = require('../utils/tenantContext');
 
@@ -28,9 +28,34 @@ const createExam = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'All exam fields are required' });
     }
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let resolvedAyId = academicYearId;
+    let ay;
+    if (typeof academicYearId === 'string' && UUID_REGEX.test(academicYearId)) {
+      ay = await AcademicYear.findOne({ where: { id: academicYearId, tenantId } });
+    } else {
+      [ay] = await AcademicYear.findOrCreate({
+        where: { tenantId, name: academicYearId },
+        defaults: {
+          startDate: '2026-06-01',
+          endDate: '2027-05-31',
+          isCurrent: true,
+          status: 'ACTIVE',
+        },
+      });
+      resolvedAyId = ay?.id;
+    }
+
+    if (!ay) {
+      return res.status(400).json({ success: false, message: 'Referenced academic year does not exist in this school.' });
+    }
+    if (ay.status === 'ARCHIVED') {
+      return res.status(400).json({ success: false, message: 'Cannot create exam in an ARCHIVED academic year.' });
+    }
+
     const exam = await Exam.create({
       name,
-      academicYearId,
+      academicYearId: resolvedAyId,
       startDate,
       endDate,
       status: 'DRAFT',
@@ -55,8 +80,14 @@ const getExams = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Tenant context required' });
     }
 
+    const { academicYearId } = req.query;
+    const where = { tenantId };
+    if (academicYearId) {
+      where.academicYearId = academicYearId;
+    }
+
     const exams = await Exam.findAll({
-      where: { tenantId },
+      where,
       order: [['startDate', 'DESC']],
       include: [
         {

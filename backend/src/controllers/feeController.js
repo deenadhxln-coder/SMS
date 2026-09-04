@@ -1,4 +1,4 @@
-const { FeeStructure, Invoice, Payment, Student, User, Class, sequelize } = require('../models');
+const { FeeStructure, Invoice, Payment, Student, User, Class, AcademicYear, sequelize } = require('../models');
 const { logAudit } = require('../services/auditService');
 const { invalidateDashboardCache } = require('../utils/cacheHelper');
 const { sendToUser } = require('../services/notificationService');
@@ -23,6 +23,15 @@ const createFeeStructure = async (req, res, next) => {
     const classExists = await Class.findOne({ where: { id: classId, tenantId } });
     if (!classExists) {
       return res.status(400).json({ success: false, message: 'Referenced class not found in this school' });
+    }
+
+    // Verify referenced academic year exists in this tenant and is not ARCHIVED
+    const ay = await AcademicYear.findOne({ where: { id: academicYearId, tenantId } });
+    if (!ay) {
+      return res.status(400).json({ success: false, message: 'Referenced academic year does not exist in this school.' });
+    }
+    if (ay.status === 'ARCHIVED') {
+      return res.status(400).json({ success: false, message: 'Cannot create fee structure in an ARCHIVED academic year.' });
     }
 
     const structure = await FeeStructure.create({
@@ -52,8 +61,14 @@ const getFeeStructures = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Tenant context required' });
     }
 
+    const { academicYearId } = req.query;
+    const where = { tenantId };
+    if (academicYearId) {
+      where.academicYearId = academicYearId;
+    }
+
     const structures = await FeeStructure.findAll({
-      where: { tenantId },
+      where,
       order: [['createdAt', 'DESC']],
     });
     return res.json({ success: true, structures });
@@ -114,8 +129,11 @@ const getInvoices = async (req, res, next) => {
         {
           model: Student,
           as: 'student',
-          attributes: ['id', 'admissionNo'],
-          include: [{ model: User, as: 'user', attributes: ['name', 'email'] }],
+          attributes: ['id', 'admissionNo', 'classId'],
+          include: [
+            { model: User, as: 'user', attributes: ['name', 'email'] },
+            { model: Class, as: 'class', attributes: ['id', 'name'] },
+          ],
         },
         {
           model: Payment,

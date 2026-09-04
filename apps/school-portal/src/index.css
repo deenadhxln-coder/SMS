@@ -60,3 +60,28 @@
 .animate-fade-in {
   animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes preloaderSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(40%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-preloader-sweep {
+  animation: preloaderSweep 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-preloader-sweep,
+  .animate-fade-in,
+  .animate-pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+}

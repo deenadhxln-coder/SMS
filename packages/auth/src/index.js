@@ -1,27 +1,51 @@
 import { create } from 'zustand';
 
+export const getStoredUser = () => {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('sms_user') : null;
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+};
+
+export const getStoredToken = () => {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem('sms_token') : null;
+  } catch (_) {
+    return null;
+  }
+};
+
 const useAuthStore = create((set) => ({
-  user: JSON.parse(localStorage.getItem('sms_user')) || null,
-  token: localStorage.getItem('sms_token') || null,
+  user: getStoredUser(),
+  token: getStoredToken(),
   
   login: (user, token) => {
-    localStorage.setItem('sms_user', JSON.stringify(user));
-    localStorage.setItem('sms_token', token);
+    try {
+      localStorage.setItem('sms_user', JSON.stringify(user));
+      localStorage.setItem('sms_token', token);
+    } catch (_) {}
     set({ user, token });
   },
 
   logout: () => {
-    localStorage.removeItem('sms_user');
-    localStorage.removeItem('sms_token');
+    try {
+      localStorage.removeItem('sms_user');
+      localStorage.removeItem('sms_token');
+    } catch (_) {}
     set({ user: null, token: null });
   },
 
   updateUser: (updatedUser) => {
-    const currentUser = JSON.parse(localStorage.getItem('sms_user')) || {};
+    const currentUser = getStoredUser() || {};
     const newUser = { ...currentUser, ...updatedUser };
-    localStorage.setItem('sms_user', JSON.stringify(newUser));
+    try {
+      localStorage.setItem('sms_user', JSON.stringify(newUser));
+    } catch (_) {}
     set({ user: newUser });
   }
 }));
 
 export default useAuthStore;
+

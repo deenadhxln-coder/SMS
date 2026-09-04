@@ -22,5 +22,13 @@ module.exports = {
     database: process.env.DB_NAME || 'school_management',
   },
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder_key_id',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || 'rzp_test_placeholder_key_secret',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || 'rzp_test_placeholder_webhook_secret',
+    currency: process.env.RAZORPAY_CURRENCY || 'INR',
+    standardPlanId: process.env.RAZORPAY_STANDARD_PLAN_ID || 'plan_standard_monthly',
+    premiumPlanId: process.env.RAZORPAY_PREMIUM_PLAN_ID || 'plan_premium_monthly',
+  },
 };
 

@@ -1,4 +1,5 @@
-const { Class, Section, Subject, ClassSubject, Teacher, User, Timetable } = require('../models');
+const { Class, Section, Subject, ClassSubject, Teacher, User, Timetable, AcademicYear } = require('../models');
+const { invalidateDashboardCache } = require('../utils/cacheHelper');
 
 // ==========================================
 // 1-4. CLASSES CRUD
@@ -10,8 +11,14 @@ const getClasses = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Tenant context required' });
     }
 
+    const { academicYearId } = req.query;
+    const where = { tenantId };
+    if (academicYearId) {
+      where.academicYearId = academicYearId;
+    }
+
     const classes = await Class.findAll({
-      where: { tenantId },
+      where,
       order: [['name', 'ASC']],
       include: [
         {
@@ -41,7 +48,33 @@ const createClass = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Class name and academic year are required' });
     }
 
-    const newClass = await Class.create({ name, academicYearId, tenantId });
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let resolvedAyId = academicYearId;
+    let ay;
+    if (typeof academicYearId === 'string' && UUID_REGEX.test(academicYearId)) {
+      ay = await AcademicYear.findOne({ where: { id: academicYearId, tenantId } });
+    } else {
+      [ay] = await AcademicYear.findOrCreate({
+        where: { tenantId, name: academicYearId },
+        defaults: {
+          startDate: '2026-06-01',
+          endDate: '2027-05-31',
+          isCurrent: true,
+          status: 'ACTIVE',
+        },
+      });
+      resolvedAyId = ay?.id;
+    }
+
+    if (!ay) {
+      return res.status(400).json({ success: false, message: 'Referenced academic year does not exist in this school.' });
+    }
+    if (ay.status === 'ARCHIVED') {
+      return res.status(400).json({ success: false, message: 'Cannot create class in an ARCHIVED academic year.' });
+    }
+
+    const newClass = await Class.create({ name, academicYearId: resolvedAyId, tenantId });
+    await invalidateDashboardCache(tenantId);
     return res.status(201).json({ success: true, message: 'Class created successfully', class: newClass });
   } catch (error) {
     next(error);
@@ -61,9 +94,20 @@ const updateClass = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Class not found' });
     }
 
+    if (academicYearId) {
+      const ay = await AcademicYear.findOne({ where: { id: academicYearId, tenantId } });
+      if (!ay) {
+        return res.status(400).json({ success: false, message: 'Referenced academic year does not exist in this school.' });
+      }
+      if (ay.status === 'ARCHIVED') {
+        return res.status(400).json({ success: false, message: 'Cannot assign class to an ARCHIVED academic year.' });
+      }
+      targetClass.academicYearId = academicYearId;
+    }
+
     if (name) targetClass.name = name;
-    if (academicYearId) targetClass.academicYearId = academicYearId;
     await targetClass.save();
+    await invalidateDashboardCache(tenantId);
 
     return res.json({ success: true, message: 'Class updated successfully', class: targetClass });
   } catch (error) {
@@ -83,6 +127,7 @@ const deleteClass = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Class not found' });
     }
     await targetClass.destroy();
+    await invalidateDashboardCache(tenantId);
     return res.json({ success: true, message: 'Class deleted successfully' });
   } catch (error) {
     next(error);

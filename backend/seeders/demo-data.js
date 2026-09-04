@@ -3,7 +3,8 @@ const {
   Tenant, User, Role, Student, Teacher, Class, Section, Subject, 
   ClassSubject, Attendance, Exam, ExamSubject, Mark, FeeStructure, 
   Invoice, Payment, AuditLog, Timetable, SubscriptionPlan, 
-  PlatformAdmin, PlatformAuditLog, sequelize 
+  PlatformAdmin, PlatformAuditLog, AcademicYear, TenantSubscription,
+  PlatformPayment, PlatformWebhookEvent, Announcement, sequelize 
 } = require('../src/models');
 
 const hashPassword = (password) => bcrypt.hashSync(password, 10);
@@ -18,7 +19,9 @@ const seed = async () => {
       'payments', 'invoices', 'fee_structures', 'marks', 'exam_subjects', 'exams',
       'attendance', 'timetables', 'class_subjects', 'subjects', 'sections', 'classes', 
       'teachers', 'students', 'users', 'roles', 'tenants', 'audit_logs',
-      'subscription_plans', 'platform_admins', 'platform_audit_logs'
+      'subscription_plans', 'platform_admins', 'platform_audit_logs',
+      'academic_years', 'announcements', 'tenant_subscriptions',
+      'platform_payments', 'platform_webhook_events'
     ];
     for (const table of tables) {
       await sequelize.query(`TRUNCATE TABLE \`${table}\``, { transaction });
@@ -37,43 +40,43 @@ const seed = async () => {
 
     // 2. Seed Subscription Plans
     console.log('🌱 Seeding Subscription Plans...');
-    await SubscriptionPlan.bulkCreate([
-      {
-        id: 'b0000000-0000-0000-0000-000000000001',
-        name: 'FREE',
-        maxStudents: 50,
-        maxTeachers: 5,
-        price: 0.00,
-        featuresJson: JSON.stringify({
-          features: ['basic_attendance', 'student_records', 'single_branch', 'community_support'],
-          maxStorageMb: 500
-        })
-      },
-      {
-        id: 'b0000000-0000-0000-0000-000000000002',
-        name: 'STANDARD',
-        maxStudents: 500,
-        maxTeachers: 30,
-        price: 99.00,
-        featuresJson: JSON.stringify({
-          features: ['attendance', 'exams_and_marks', 'fee_management', 'timetables', 'reports', 'email_alerts'],
-          maxStorageMb: 5000
-        })
-      },
-      {
-        id: 'b0000000-0000-0000-0000-000000000003',
-        name: 'PREMIUM',
-        maxStudents: 5000,
-        maxTeachers: 250,
-        price: 299.00,
-        featuresJson: JSON.stringify({
-          features: ['unlimited_students', 'all_modules', 'custom_branding', 'sms_gateway', 'priority_support', 'audit_vault'],
-          maxStorageMb: 50000
-        })
-      }
-    ], { transaction });
+    const planFree = await SubscriptionPlan.create({
+      id: 'b0000000-0000-0000-0000-000000000001',
+      name: 'FREE',
+      maxStudents: 50,
+      maxTeachers: 5,
+      price: 0.00,
+      featuresJson: JSON.stringify({
+        features: ['basic_attendance', 'student_records', 'single_branch', 'community_support'],
+        maxStorageMb: 500
+      })
+    }, { transaction });
 
-    // 3. Seed Platform Super Admins
+    const planStd = await SubscriptionPlan.create({
+      id: 'b0000000-0000-0000-0000-000000000002',
+      name: 'STANDARD',
+      maxStudents: 500,
+      maxTeachers: 30,
+      price: 99.00,
+      featuresJson: JSON.stringify({
+        features: ['attendance', 'exams_and_marks', 'fee_management', 'timetables', 'reports', 'email_alerts'],
+        maxStorageMb: 5000
+      })
+    }, { transaction });
+
+    const planPrem = await SubscriptionPlan.create({
+      id: 'b0000000-0000-0000-0000-000000000003',
+      name: 'PREMIUM',
+      maxStudents: 5000,
+      maxTeachers: 250,
+      price: 299.00,
+      featuresJson: JSON.stringify({
+        features: ['unlimited_students', 'all_modules', 'custom_branding', 'sms_gateway', 'priority_support', 'audit_vault'],
+        maxStorageMb: 50000
+      })
+    }, { transaction });
+
+    // 3. Seed Platform Super Admins in platform_admins table
     console.log('🌱 Seeding Platform Super Admins...');
     const superAdmin1 = await PlatformAdmin.create({
       id: 'a0000000-0000-0000-0000-000000000001',
@@ -85,33 +88,25 @@ const seed = async () => {
 
     const superAdmin2 = await PlatformAdmin.create({
       id: 'a0000000-0000-0000-0000-000000000002',
-      name: 'Global Platform Admin',
+      name: 'Global Operations Admin',
       email: 'superadmin@saasplatform.com',
       passwordHash: hashPassword('superadminpassword'),
       status: 'ACTIVE'
     }, { transaction });
 
-    // Also seed in users table for backward compatibility
-    await User.create({
-      name: 'System Super Admin',
-      email: 'admin@school.com',
-      passwordHash: hashPassword('adminpassword'),
-      roleId: 1,
-      status: 'ACTIVE',
-      tenantId: null
-    }, { transaction });
-
-    await User.create({
-      name: 'Global Super Admin',
-      email: 'superadmin@saasplatform.com',
-      passwordHash: hashPassword('superadminpassword'),
-      roleId: 1,
-      status: 'ACTIVE',
-      tenantId: null
-    }, { transaction });
-
     // 4. Seed Tenants (Schools)
     console.log('🌱 Seeding Tenants (Schools)...');
+    const tenantDefault = await Tenant.create({
+      id: 'd0000000-0000-0000-0000-000000000000',
+      schoolName: 'Apex Demonstration Academy',
+      slug: 'default',
+      logoUrl: null,
+      planType: 'STANDARD',
+      status: 'ACTIVE',
+      contactEmail: 'schooladmin@school.com',
+      createdByAdminId: superAdmin1.id
+    }, { transaction });
+
     const tenantStX = await Tenant.create({
       id: 'e0000000-0000-0000-0000-000000000001',
       schoolName: 'St. Xavier International School',
@@ -125,7 +120,7 @@ const seed = async () => {
 
     const tenantOak = await Tenant.create({
       id: 'e0000000-0000-0000-0000-000000000002',
-      schoolName: 'Oakridge Academy',
+      schoolName: 'Oakridge STEM Academy',
       slug: 'oakridge',
       logoUrl: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=128&auto=format&fit=crop&q=80',
       planType: 'STANDARD',
@@ -145,15 +140,207 @@ const seed = async () => {
       createdByAdminId: superAdmin2.id
     }, { transaction });
 
-    const tenantDefault = await Tenant.create({
-      id: 'd0000000-0000-0000-0000-000000000000',
-      schoolName: 'Default School',
-      slug: 'default',
-      logoUrl: null,
+    const tenantBeacon = await Tenant.create({
+      id: 'e0000000-0000-0000-0000-000000000004',
+      schoolName: 'Beacon Heights Preparatory',
+      slug: 'beaconheights',
+      logoUrl: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=128&auto=format&fit=crop&q=80',
       planType: 'STANDARD',
       status: 'ACTIVE',
-      contactEmail: 'schooladmin@school.com',
+      contactEmail: 'contact@beaconheights.edu',
       createdByAdminId: superAdmin1.id
+    }, { transaction });
+
+    const tenantSilverOak = await Tenant.create({
+      id: 'e0000000-0000-0000-0000-000000000005',
+      schoolName: 'Silver Oak Grammar School',
+      slug: 'silveroak',
+      logoUrl: 'https://images.unsplash.com/photo-1562774053-701939374585?w=128&auto=format&fit=crop&q=80',
+      planType: 'FREE',
+      status: 'ACTIVE',
+      contactEmail: 'info@silveroak.edu',
+      createdByAdminId: superAdmin2.id
+    }, { transaction });
+
+    // Fallback user records with default tenant ID
+    await User.create({
+      name: 'System Super Admin',
+      email: 'admin@school.com',
+      passwordHash: hashPassword('adminpassword'),
+      roleId: 1,
+      status: 'ACTIVE',
+      tenantId: tenantDefault.id
+    }, { transaction });
+
+    await User.create({
+      name: 'Global Operations Admin',
+      email: 'superadmin@saasplatform.com',
+      passwordHash: hashPassword('superadminpassword'),
+      roleId: 1,
+      status: 'ACTIVE',
+      tenantId: tenantDefault.id
+    }, { transaction });
+
+    // 5. Seed Subscriptions & Platform SaaS Payments (Domain B)
+    console.log('🌱 Seeding Platform Subscriptions & SaaS Invoices (Domain B)...');
+    
+    // St. Xavier (PREMIUM)
+    const subStX = await TenantSubscription.create({
+      tenantId: tenantStX.id,
+      planId: planPrem.id,
+      planType: 'PREMIUM',
+      gatewaySubscriptionId: 'sub_rzp_live_stx_9841',
+      gatewayCustomerId: 'cust_rzp_stx_001',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(Date.now() - 60 * 86400000),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    }, { transaction });
+
+    await PlatformPayment.bulkCreate([
+      {
+        tenantId: tenantStX.id,
+        subscriptionId: subStX.id,
+        gatewayPaymentId: 'pay_rzp_stx_jul_2026',
+        amount: 299.00,
+        currency: 'INR',
+        status: 'SUCCEEDED',
+        paymentMethod: 'UPI',
+        paidAt: new Date(Date.now() - 60 * 86400000),
+      },
+      {
+        tenantId: tenantStX.id,
+        subscriptionId: subStX.id,
+        gatewayPaymentId: 'pay_rzp_stx_aug_2026',
+        amount: 299.00,
+        currency: 'INR',
+        status: 'SUCCEEDED',
+        paymentMethod: 'CARD',
+        paidAt: new Date(Date.now() - 30 * 86400000),
+      },
+      {
+        tenantId: tenantStX.id,
+        subscriptionId: subStX.id,
+        gatewayPaymentId: 'pay_rzp_stx_sep_2026',
+        amount: 299.00,
+        currency: 'INR',
+        status: 'SUCCEEDED',
+        paymentMethod: 'UPI',
+        paidAt: new Date(),
+      }
+    ], { transaction });
+
+    // Oakridge (STANDARD)
+    const subOak = await TenantSubscription.create({
+      tenantId: tenantOak.id,
+      planId: planStd.id,
+      planType: 'STANDARD',
+      gatewaySubscriptionId: 'sub_rzp_live_oak_5521',
+      gatewayCustomerId: 'cust_rzp_oak_002',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(Date.now() - 30 * 86400000),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    }, { transaction });
+
+    await PlatformPayment.bulkCreate([
+      {
+        tenantId: tenantOak.id,
+        subscriptionId: subOak.id,
+        gatewayPaymentId: 'pay_rzp_oak_aug_2026',
+        amount: 99.00,
+        currency: 'INR',
+        status: 'SUCCEEDED',
+        paymentMethod: 'NETBANKING',
+        paidAt: new Date(Date.now() - 30 * 86400000),
+      },
+      {
+        tenantId: tenantOak.id,
+        subscriptionId: subOak.id,
+        gatewayPaymentId: 'pay_rzp_oak_sep_2026',
+        amount: 99.00,
+        currency: 'INR',
+        status: 'SUCCEEDED',
+        paymentMethod: 'UPI',
+        paidAt: new Date(),
+      }
+    ], { transaction });
+
+    // Greenwood (PREMIUM)
+    const subGwd = await TenantSubscription.create({
+      tenantId: tenantGreenwood.id,
+      planId: planPrem.id,
+      planType: 'PREMIUM',
+      gatewaySubscriptionId: 'sub_rzp_live_gwd_3310',
+      gatewayCustomerId: 'cust_rzp_gwd_003',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(Date.now() - 30 * 86400000),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    }, { transaction });
+
+    await PlatformPayment.create({
+      tenantId: tenantGreenwood.id,
+      subscriptionId: subGwd.id,
+      gatewayPaymentId: 'pay_rzp_gwd_sep_2026',
+      amount: 299.00,
+      currency: 'INR',
+      status: 'SUCCEEDED',
+      paymentMethod: 'CARD',
+      paidAt: new Date(),
+    }, { transaction });
+
+    // Beacon Heights (STANDARD)
+    const subBeacon = await TenantSubscription.create({
+      tenantId: tenantBeacon.id,
+      planId: planStd.id,
+      planType: 'STANDARD',
+      gatewaySubscriptionId: 'sub_rzp_live_bcn_7720',
+      gatewayCustomerId: 'cust_rzp_bcn_004',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 30 * 86400000),
+    }, { transaction });
+
+    await PlatformPayment.create({
+      tenantId: tenantBeacon.id,
+      subscriptionId: subBeacon.id,
+      gatewayPaymentId: 'pay_rzp_bcn_sep_2026',
+      amount: 99.00,
+      currency: 'INR',
+      status: 'SUCCEEDED',
+      paymentMethod: 'UPI',
+      paidAt: new Date(),
+    }, { transaction });
+
+    // Silver Oak (FREE Tier)
+    await TenantSubscription.create({
+      tenantId: tenantSilverOak.id,
+      planId: planFree.id,
+      planType: 'FREE',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 365 * 86400000),
+    }, { transaction });
+
+    // Default School (STANDARD)
+    const subDef = await TenantSubscription.create({
+      tenantId: tenantDefault.id,
+      planId: planStd.id,
+      planType: 'STANDARD',
+      gatewaySubscriptionId: 'sub_rzp_live_def_1001',
+      gatewayCustomerId: 'cust_rzp_def_000',
+      status: 'ACTIVE',
+      currentPeriodStart: new Date(Date.now() - 15 * 86400000),
+      currentPeriodEnd: new Date(Date.now() + 15 * 86400000),
+    }, { transaction });
+
+    await PlatformPayment.create({
+      tenantId: tenantDefault.id,
+      subscriptionId: subDef.id,
+      gatewayPaymentId: 'pay_rzp_def_sep_2026',
+      amount: 99.00,
+      currency: 'INR',
+      status: 'SUCCEEDED',
+      paymentMethod: 'UPI',
+      paidAt: new Date(Date.now() - 15 * 86400000),
     }, { transaction });
 
     // Platform Audit Logs
@@ -163,6 +350,12 @@ const seed = async () => {
         action: 'TENANT_ONBOARDED',
         tenantId: tenantStX.id,
         metadata: JSON.stringify({ school: tenantStX.schoolName, plan: 'PREMIUM' })
+      },
+      {
+        adminId: superAdmin1.id,
+        action: 'PLATFORM_SUBSCRIPTION_ACTIVATED',
+        tenantId: tenantStX.id,
+        metadata: JSON.stringify({ planType: 'PREMIUM', gatewaySubscriptionId: subStX.gatewaySubscriptionId })
       },
       {
         adminId: superAdmin1.id,
@@ -178,13 +371,32 @@ const seed = async () => {
       },
       {
         adminId: superAdmin1.id,
+        action: 'TENANT_ONBOARDED',
+        tenantId: tenantBeacon.id,
+        metadata: JSON.stringify({ school: tenantBeacon.schoolName, plan: 'STANDARD' })
+      },
+      {
+        adminId: superAdmin2.id,
+        action: 'TENANT_ONBOARDED',
+        tenantId: tenantSilverOak.id,
+        metadata: JSON.stringify({ school: tenantSilverOak.schoolName, plan: 'FREE' })
+      },
+      {
+        adminId: superAdmin1.id,
         action: 'PLATFORM_INITIALIZED',
         tenantId: null,
-        metadata: JSON.stringify({ note: 'Platform bootstrap complete' })
+        metadata: JSON.stringify({ note: 'DHXLN Multi-Tenant Platform production bootstrap complete' })
       }
     ], { transaction });
 
     const tenantList = [
+      {
+        instance: tenantDefault,
+        adminEmail: 'schooladmin@school.com',
+        adminName: 'School Administrator',
+        prefix: 'DEF',
+        domain: 'school.com'
+      },
       {
         instance: tenantStX,
         adminEmail: 'admin@stxavier.com',
@@ -205,22 +417,15 @@ const seed = async () => {
         adminName: 'Prof. David Sterling (Dean)',
         prefix: 'GWD',
         domain: 'greenwood.com'
-      },
-      {
-        instance: tenantDefault,
-        adminEmail: 'schooladmin@school.com',
-        adminName: 'Default School Administrator',
-        prefix: 'DEF',
-        domain: 'school.com'
       }
     ];
 
     const teacherNames = [
       { name: 'Dr. Robert Langdon', dept: 'Mathematics', email: 'robert.math' },
-      { name: 'Sarah Connor', dept: 'Science & Physics', email: 'sarah.physics' },
+      { name: 'Sarah Connor, M.Sc', dept: 'Science & Physics', email: 'sarah.physics' },
       { name: 'Prof. Alan Turing', dept: 'Computer Science', email: 'alan.cs' },
-      { name: 'Ada Lovelace', dept: 'English Literature', email: 'ada.english' },
-      { name: 'Priya Sharma', dept: 'Chemistry', email: 'priya.chem' },
+      { name: 'Ada Lovelace, M.A', dept: 'English Literature', email: 'ada.english' },
+      { name: 'Dr. Priya Sharma', dept: 'Chemistry', email: 'priya.chem' },
       { name: 'Marcus Aurelius', dept: 'Social Studies & History', email: 'marcus.history' }
     ];
 
@@ -247,25 +452,47 @@ const seed = async () => {
     // Seed data per tenant
     for (const t of tenantList) {
       const tenant = t.instance;
-      console.log(`\n🏫 Seeding rich data for tenant: ${tenant.schoolName} (${t.prefix})...`);
+      console.log(`\n🏫 Seeding rich operational data for: ${tenant.schoolName} (${t.prefix})...`);
 
-      // A. Seed School Admin
-      await User.create({
-        name: t.adminName,
-        email: t.adminEmail,
-        passwordHash: hashPassword(t.adminEmail === 'schooladmin@school.com' ? 'adminpassword' : 'password123'),
-        roleId: 2,
+      // A. Seed Academic Year
+      const academicYear = await AcademicYear.create({
+        tenantId: tenant.id,
+        name: '2026-2027',
+        startDate: '2026-06-01',
+        endDate: '2027-05-31',
+        isCurrent: true,
         status: 'ACTIVE',
-        tenantId: tenant.id
       }, { transaction });
 
-      // B. Seed Teachers
+      await AcademicYear.create({
+        tenantId: tenant.id,
+        name: '2025-2026',
+        startDate: '2025-06-01',
+        endDate: '2026-05-31',
+        isCurrent: false,
+        status: 'ARCHIVED',
+      }, { transaction });
+
+      // B. Seed School Admin (skip if default tenant user already exists)
+      const existingUser = await User.findOne({ where: { email: t.adminEmail }, transaction });
+      if (!existingUser) {
+        await User.create({
+          name: t.adminName,
+          email: t.adminEmail,
+          passwordHash: hashPassword(t.adminEmail === 'schooladmin@school.com' ? 'adminpassword' : 'password123'),
+          roleId: 2,
+          status: 'ACTIVE',
+          tenantId: tenant.id
+        }, { transaction });
+      }
+
+      // C. Seed Teachers
       const teachers = [];
       for (let i = 0; i < teacherNames.length; i++) {
         const tInfo = teacherNames[i];
         const teacherUser = await User.create({
           name: tInfo.name,
-          email: `${tInfo.email}@${t.domain}`,
+          email: `${tInfo.email}.${t.prefix.toLowerCase()}@${t.domain}`,
           passwordHash: hashPassword('password123'),
           roleId: 3,
           status: 'ACTIVE',
@@ -282,13 +509,13 @@ const seed = async () => {
         teachers.push({ teacher, user: teacherUser });
       }
 
-      // C. Seed Parents
+      // D. Seed Parents
       const parents = [];
       for (let i = 0; i < parentData.length; i++) {
         const pInfo = parentData[i];
         const parentUser = await User.create({
           name: pInfo.name,
-          email: `${pInfo.email}@${t.domain}`,
+          email: `${pInfo.email}.${t.prefix.toLowerCase()}@${t.domain}`,
           passwordHash: hashPassword('password123'),
           roleId: 5,
           status: 'ACTIVE',
@@ -297,15 +524,15 @@ const seed = async () => {
         parents.push(parentUser);
       }
 
-      // D. Seed Classes & Sections
-      const classNames = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'];
+      // E. Seed Classes & Sections
+      const classGrades = ['Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
       const classes = [];
       const sections = [];
 
-      for (let i = 0; i < classNames.length; i++) {
+      for (const grade of classGrades) {
         const cls = await Class.create({
-          name: classNames[i],
-          academicYearId: '2026-2027',
+          name: grade,
+          academicYearId: academicYear.id,
           tenantId: tenant.id
         }, { transaction });
         classes.push(cls);
@@ -313,105 +540,43 @@ const seed = async () => {
         const secA = await Section.create({
           name: 'Section A',
           classId: cls.id,
-          classTeacherId: teachers[i % teachers.length].teacher.id,
           tenantId: tenant.id
         }, { transaction });
 
         const secB = await Section.create({
           name: 'Section B',
           classId: cls.id,
-          classTeacherId: teachers[(i + 1) % teachers.length].teacher.id,
           tenantId: tenant.id
         }, { transaction });
 
-        sections.push({ cls, secA, secB });
+        sections.push({ secA, secB, cls });
       }
 
-      // E. Seed Core Subjects
-      const subjectDefs = [
-        { name: 'Mathematics', code: `MATH-${t.prefix}` },
-        { name: 'Science & Physics', code: `SCI-${t.prefix}` },
-        { name: 'English Literature', code: `ENG-${t.prefix}` },
-        { name: 'Computer Science', code: `CS-${t.prefix}` },
-        { name: 'Chemistry & Biology', code: `CHEM-${t.prefix}` },
-        { name: 'Social Studies & History', code: `SST-${t.prefix}` }
-      ];
-
-      const subjects = [];
-      for (const sDef of subjectDefs) {
-        const subj = await Subject.create({
-          name: sDef.name,
-          code: sDef.code,
-          tenantId: tenant.id
-        }, { transaction });
-        subjects.push(subj);
-      }
-
-      // F. Map ClassSubjects
-      for (const cls of classes) {
-        for (let i = 0; i < subjects.length; i++) {
-          await ClassSubject.create({
-            classId: cls.id,
-            subjectId: subjects[i].id,
-            teacherId: teachers[i % teachers.length].teacher.id,
-            tenantId: tenant.id
-          }, { transaction });
-        }
-      }
-
-      // G. Seed Timetables
-      const days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
-      const periods = [
-        { startTime: '09:00', endTime: '10:00', room: 'Room 101' },
-        { startTime: '10:00', endTime: '11:00', room: 'Room 102' },
-        { startTime: '11:15', endTime: '12:15', room: 'Sci Lab 1' },
-        { startTime: '13:00', endTime: '14:00', room: 'CS Lab' },
-        { startTime: '14:00', endTime: '15:00', room: 'Room 103' }
-      ];
-
-      const timetableRecords = [];
-      for (const cls of classes) {
-        for (let d = 0; d < days.length; d++) {
-          for (let p = 0; p < periods.length; p++) {
-            const subjIdx = (d + p) % subjects.length;
-            timetableRecords.push({
-              classId: cls.id,
-              subjectId: subjects[subjIdx].id,
-              teacherId: teachers[subjIdx % teachers.length].teacher.id,
-              dayOfWeek: days[d],
-              startTime: periods[p].startTime,
-              endTime: periods[p].endTime,
-              roomNumber: periods[p].room,
-              tenantId: tenant.id
-            });
-          }
-        }
-      }
-      await Timetable.bulkCreate(timetableRecords, { transaction });
-
-      // H. Seed Students linked to Parents & Classes/Sections
+      // F. Seed Students
       const students = [];
       for (let i = 0; i < studentNames.length; i++) {
         const sName = studentNames[i];
+        const sEmail = `student.${sName.toLowerCase().replace(/[^a-z]/g, '')}.${t.prefix.toLowerCase()}@${t.domain}`;
+        const parent = parents[i % parents.length];
+        const targetSectionInfo = sections[i % sections.length];
+        const assignedSection = (i % 2 === 0) ? targetSectionInfo.secA : targetSectionInfo.secB;
+
         const studentUser = await User.create({
           name: sName,
-          email: `student${i + 1}@${t.domain}`,
+          email: sEmail,
           passwordHash: hashPassword('password123'),
           roleId: 4,
           status: 'ACTIVE',
           tenantId: tenant.id
         }, { transaction });
 
-        const targetGroup = sections[i % sections.length];
-        const targetSection = (i % 2 === 0) ? targetGroup.secA : targetGroup.secB;
-        const targetParent = parents[i % parents.length];
-
         const student = await Student.create({
-          admissionNo: `ADM-${t.prefix}-2026-${100 + i}`,
+          admissionNo: `ADM-${t.prefix}-${202600 + i + 1}`,
+          rollNo: `${101 + (i % 20)}`,
           userId: studentUser.id,
-          classId: targetGroup.cls.id,
-          sectionId: targetSection.id,
-          parentId: targetParent.id,
+          parentId: parent.id,
+          classId: targetSectionInfo.cls.id,
+          sectionId: assignedSection.id,
           status: 'ACTIVE',
           tenantId: tenant.id
         }, { transaction });
@@ -419,27 +584,84 @@ const seed = async () => {
         students.push({ student, user: studentUser });
       }
 
-      // I. Seed 30 Consecutive Days Attendance Records
-      const dateList = [];
-      const today = new Date();
-      for (let i = 30; i >= 1; i--) {
-        const d = new Date(today);
-        d.setDate(today.getDate() - i);
-        // Skip weekends
-        if (d.getDay() !== 0 && d.getDay() !== 6) {
-          dateList.push(d.toISOString().split('T')[0]);
+      // G. Seed Subjects & Class-Subject mappings
+      const subjectCatalog = [
+        { name: 'Mathematics', code: 'MATH' },
+        { name: 'Physics', code: 'PHYS' },
+        { name: 'Chemistry', code: 'CHEM' },
+        { name: 'Computer Science', code: 'CS' },
+        { name: 'English Literature', code: 'ENG' },
+        { name: 'Social Studies & History', code: 'HIST' }
+      ];
+
+      const subjects = [];
+      for (const sc of subjectCatalog) {
+        const subj = await Subject.create({
+          name: sc.name,
+          code: `${sc.code}-${t.prefix}`,
+          tenantId: tenant.id
+        }, { transaction });
+        subjects.push(subj);
+      }
+
+      for (let cIdx = 0; cIdx < classes.length; cIdx++) {
+        const cls = classes[cIdx];
+        for (let sIdx = 0; sIdx < subjects.length; sIdx++) {
+          const subj = subjects[sIdx];
+          const teacher = teachers[sIdx % teachers.length].teacher;
+          await ClassSubject.create({
+            classId: cls.id,
+            subjectId: subj.id,
+            teacherId: teacher.id,
+            tenantId: tenant.id
+          }, { transaction });
         }
       }
 
-      const attendanceList = [];
-      for (const st of students) {
-        for (const dateStr of dateList) {
-          const rand = Math.random();
-          let status = 'PRESENT';
-          if (rand > 0.94) status = 'ABSENT';
-          else if (rand > 0.88) status = 'LATE';
+      // H. Seed Timetables
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+      const periods = [
+        { start: '08:30:00', end: '09:15:00' },
+        { start: '09:20:00', end: '10:05:00' },
+        { start: '10:20:00', end: '11:05:00' },
+        { start: '11:10:00', end: '11:55:00' },
+        { start: '12:40:00', end: '01:25:00' }
+      ];
 
-          attendanceList.push({
+      for (const secInfo of sections) {
+        for (const day of days) {
+          for (let pIdx = 0; pIdx < periods.length; pIdx++) {
+            const p = periods[pIdx];
+            const subj = subjects[(pIdx + days.indexOf(day)) % subjects.length];
+            const teacher = teachers[(pIdx + days.indexOf(day)) % teachers.length].teacher;
+
+            await Timetable.create({
+              classId: secInfo.cls.id,
+              sectionId: secInfo.secA.id,
+              subjectId: subj.id,
+              teacherId: teacher.id,
+              dayOfWeek: day,
+              startTime: p.start,
+              endTime: p.end,
+              tenantId: tenant.id
+            }, { transaction });
+          }
+        }
+      }
+
+      // I. Seed Attendance Records (Past 14 Days)
+      const attendanceBatch = [];
+      const today = new Date();
+      for (let d = 14; d >= 0; d--) {
+        const dateObj = new Date(today);
+        dateObj.setDate(today.getDate() - d);
+        if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue; // Skip weekends
+        const dateStr = dateObj.toISOString().split('T')[0];
+
+        for (const st of students) {
+          const rand = Math.random();
+          const status = rand > 0.12 ? 'PRESENT' : (rand > 0.04 ? 'LATE' : 'ABSENT');
+          attendanceBatch.push({
             studentId: st.student.id,
             classId: st.student.classId,
             date: dateStr,
@@ -449,72 +671,80 @@ const seed = async () => {
           });
         }
       }
-      await Attendance.bulkCreate(attendanceList, { transaction });
+      await Attendance.bulkCreate(attendanceBatch, { transaction });
 
-      // J. Seed Exam Terms & Exam Subjects & Marks
+      // J. Seed Exams, Exam Subjects & Marks
       const examMid = await Exam.create({
         name: 'Mid-Term Examination 2026',
-        academicYearId: '2026-2027',
-        startDate: '2026-10-10',
-        endDate: '2026-10-22',
-        status: 'PUBLISHED',
+        academicYearId: academicYear.id,
+        term: 'TERM_1',
+        startDate: '2026-09-15',
+        endDate: '2026-09-25',
         tenantId: tenant.id
       }, { transaction });
 
       const examFinal = await Exam.create({
-        name: 'Final Board & Annual Examination 2027',
-        academicYearId: '2026-2027',
-        startDate: '2027-03-05',
-        endDate: '2027-03-20',
-        status: 'PUBLISHED',
+        name: 'Annual Board Assessment 2027',
+        academicYearId: academicYear.id,
+        term: 'TERM_2',
+        startDate: '2027-03-10',
+        endDate: '2027-03-24',
         tenantId: tenant.id
       }, { transaction });
 
-      const exams = [examMid, examFinal];
+      const examSubjectsMid = [];
+      for (const cls of classes) {
+        for (const subj of subjects) {
+          const esMid = await ExamSubject.create({
+            examId: examMid.id,
+            subjectId: subj.id,
+            classId: cls.id,
+            examDate: '2026-09-18',
+            maxMarks: 100.0,
+            tenantId: tenant.id
+          }, { transaction });
+          examSubjectsMid.push(esMid);
+
+          await ExamSubject.create({
+            examId: examFinal.id,
+            subjectId: subj.id,
+            classId: cls.id,
+            examDate: '2027-03-15',
+            maxMarks: 100.0,
+            tenantId: tenant.id
+          }, { transaction });
+        }
+      }
+
       const marksList = [];
+      for (const st of students) {
+        const studentExamSubjects = examSubjectsMid.filter(es => es.classId === st.student.classId);
+        for (const es of studentExamSubjects) {
+          const score = Math.floor(55 + Math.random() * 43);
+          let grade = 'A';
+          if (score < 60) grade = 'C';
+          else if (score < 75) grade = 'B';
+          else if (score >= 90) grade = 'A+';
 
-      for (const ex of exams) {
-        for (const cls of classes) {
-          for (let i = 0; i < subjects.length; i++) {
-            const subj = subjects[i];
-            const examSub = await ExamSubject.create({
-              examId: ex.id,
-              subjectId: subj.id,
-              classId: cls.id,
-              examDate: ex.startDate,
-              maxMarks: 100.0,
-              tenantId: tenant.id
-            }, { transaction });
-
-            const classStudents = students.filter(s => s.student.classId === cls.id);
-            for (const st of classStudents) {
-              const score = Math.floor(55 + Math.random() * 44);
-              let grade = 'C';
-              if (score >= 90) grade = 'A+';
-              else if (score >= 80) grade = 'A';
-              else if (score >= 70) grade = 'B';
-
-              marksList.push({
-                examSubjectId: examSub.id,
-                studentId: st.student.id,
-                marksObtained: score,
-                maxMarks: 100.0,
-                grade,
-                tenantId: tenant.id
-              });
-            }
-          }
+          marksList.push({
+            examSubjectId: es.id,
+            studentId: st.student.id,
+            marksObtained: score,
+            maxMarks: 100.0,
+            grade,
+            tenantId: tenant.id
+          });
         }
       }
       await Mark.bulkCreate(marksList, { transaction });
 
-      // K. Seed Fee Structures
+      // K. Seed Fee Structures (Domain A)
       for (const cls of classes) {
         await FeeStructure.create({
           classId: cls.id,
           title: 'Annual Academic Tuition Fee',
           amount: 1500.00,
-          academicYearId: '2026-2027',
+          academicYearId: academicYear.id,
           tenantId: tenant.id
         }, { transaction });
 
@@ -522,7 +752,7 @@ const seed = async () => {
           classId: cls.id,
           title: 'Science & Computer Lab Fee',
           amount: 250.00,
-          academicYearId: '2026-2027',
+          academicYearId: academicYear.id,
           tenantId: tenant.id
         }, { transaction });
 
@@ -530,7 +760,7 @@ const seed = async () => {
           classId: cls.id,
           title: 'Transport & Fleet Service Fee',
           amount: 350.00,
-          academicYearId: '2026-2027',
+          academicYearId: academicYear.id,
           tenantId: tenant.id
         }, { transaction });
 
@@ -538,12 +768,12 @@ const seed = async () => {
           classId: cls.id,
           title: 'Library & Athletics Fee',
           amount: 150.00,
-          academicYearId: '2026-2027',
+          academicYearId: academicYear.id,
           tenantId: tenant.id
         }, { transaction });
       }
 
-      // L. Seed Invoices & Payments
+      // L. Seed Invoices & Payments (Domain A)
       for (let i = 0; i < students.length; i++) {
         const st = students[i];
         const totalAmount = 2250.00;
@@ -583,9 +813,34 @@ const seed = async () => {
         }
       }
 
-      // M. School Audit Logs
+      // M. Seed School Announcements
+      await Announcement.bulkCreate([
+        {
+          tenantId: tenant.id,
+          title: 'Annual Science Fair & Robotics Expo 2026',
+          body: 'All students from Grades 9-12 are invited to register their robotics and science models by Friday.',
+          targetRole: 'ALL',
+          createdBy: teachers[0].user.id,
+        },
+        {
+          tenantId: tenant.id,
+          title: 'Parent-Teacher Interaction Meet (PTM) Schedule',
+          body: 'PTM for Term 1 academic review will be held this Saturday from 09:00 AM to 01:00 PM in the Main Auditorium.',
+          targetRole: 'Parent',
+          createdBy: teachers[1].user.id,
+        },
+        {
+          tenantId: tenant.id,
+          title: 'Term 1 Examination Schedule & Guidelines Released',
+          body: 'The finalized timetable for the upcoming Term 1 Examinations has been published in the Academics portal.',
+          targetRole: 'Student',
+          createdBy: teachers[2].user.id,
+        }
+      ], { transaction });
+
+      // N. School Audit Logs
       await AuditLog.create({
-        userId: null,
+        userId: teachers[0].user.id,
         action: 'ONBOARD_TENANT',
         entity: 'Tenant',
         entityId: tenant.id,
@@ -603,27 +858,31 @@ const seed = async () => {
 
     await sequelize.query('SET FOREIGN_KEY_CHECKS = 1', { transaction });
     await transaction.commit();
+
     console.log('\n🎉 =======================================================');
-    console.log('🚀 DATABASE POPULATION COMPLETED SUCCESSFULLY!');
+    console.log('🚀 REALISTIC PRODUCTION DATABASE SEEDING COMPLETE!');
     console.log('=======================================================');
-    console.log('✅ Subscription Plans (FREE, STANDARD, PREMIUM) seeded');
-    console.log('✅ Platform Super Admins seeded:');
-    console.log('   - admin@school.com / adminpassword');
+    console.log('✅ Subscription Plans (FREE, STANDARD, PREMIUM)');
+    console.log('✅ 2 Platform Super Admins:');
+    console.log('   - admin@school.com / adminpassword (Super Admin)');
     console.log('   - superadmin@saasplatform.com / superadminpassword');
-    console.log('✅ 4 Schools / Tenants seeded:');
-    console.log('   1. St. Xavier International School (admin@stxavier.com / password123)');
-    console.log('   2. Oakridge Academy (admin@oakridge.com / password123)');
-    console.log('   3. Greenwood Global High School (admin@greenwood.com / password123)');
-    console.log('   4. Default School (schooladmin@school.com / adminpassword)');
-    console.log('✅ 24 Teachers across 6 specialized departments');
+    console.log('✅ 6 Realistic Schools / Tenants:');
+    console.log('   1. Apex Demonstration Academy (schooladmin@school.com / adminpassword) [STANDARD]');
+    console.log('   2. St. Xavier International School (admin@stxavier.com / password123) [PREMIUM]');
+    console.log('   3. Oakridge STEM Academy (admin@oakridge.com / password123) [STANDARD]');
+    console.log('   4. Greenwood Global High School (admin@greenwood.com / password123) [PREMIUM]');
+    console.log('   5. Beacon Heights Preparatory (contact@beaconheights.edu) [STANDARD]');
+    console.log('   6. Silver Oak Grammar School (info@silveroak.edu) [FREE]');
+    console.log('✅ Platform SaaS Subscriptions & Invoices (Domain B)');
+    console.log('✅ 24 Faculty / Teachers across 6 Departments');
     console.log('✅ 40 Parents linked to children');
-    console.log('✅ 80 Students across Grades 7, 8, 9, 10 (Sections A & B)');
-    console.log('✅ 24 Subjects and Class-Subject assignments');
-    console.log('✅ Full Weekly Timetables (Monday-Friday, 5 periods/day)');
-    console.log('✅ 30 Days of realistic daily Attendance records');
-    console.log('✅ 2 Exam Terms, Exam Subjects, and Student Marks/Grades');
-    console.log('✅ Fee Structures, Student Invoices & Transaction Payments');
-    console.log('✅ Platform Audit Logs & School Activity Logs');
+    console.log('✅ 80 Students enrolled with admission & roll numbers');
+    console.log('✅ Classes (Grades 9-12), Sections (A & B), Subjects & Timetables');
+    console.log('✅ 14 Days of Daily Student Attendance Logs');
+    console.log('✅ Academic Years, 2 Exam Terms & Student Gradebooks');
+    console.log('✅ Fee Structures, Student Invoices & Payment Receipts (Domain A)');
+    console.log('✅ School Announcements & Pinned Broadcasts');
+    console.log('✅ Platform & School Security Audit Logs');
     console.log('=======================================================\n');
     process.exit(0);
   } catch (error) {

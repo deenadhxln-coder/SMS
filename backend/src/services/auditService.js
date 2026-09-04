@@ -22,8 +22,20 @@ const logAudit = async (userId, action, entity, entityId = null, tenantId = null
 
 const logPlatformAudit = async (adminId, action, tenantId = null, metadata = null) => {
   try {
+    let resolvedAdminId = adminId;
+    if (!resolvedAdminId) {
+      const { PlatformAdmin } = require('../models');
+      const systemAdmin = await PlatformAdmin.findOne();
+      if (systemAdmin) {
+        resolvedAdminId = systemAdmin.id;
+      }
+    }
+    if (!resolvedAdminId) {
+      console.warn(`[AUDIT WARNING] Skipped PlatformAuditLog for action ${action}: missing adminId.`);
+      return;
+    }
     await PlatformAuditLog.create({
-      adminId,
+      adminId: resolvedAdminId,
       action,
       tenantId,
       metadata: metadata ? JSON.stringify(metadata) : null,

@@ -23,11 +23,16 @@ const Tenant = require('./Tenant');
 const PlatformAdmin = require('./PlatformAdmin');
 const SubscriptionPlan = require('./SubscriptionPlan');
 const PlatformAuditLog = require('./PlatformAuditLog');
+const Announcement = require('./Announcement');
+const AcademicYear = require('./AcademicYear');
+const TenantSubscription = require('./TenantSubscription');
+const PlatformPayment = require('./PlatformPayment');
+const PlatformWebhookEvent = require('./PlatformWebhookEvent');
 
 const tenantModels = [
   User, Teacher, Student, Class, Section, Subject, ClassSubject,
   Attendance, Exam, ExamSubject, Mark, FeeStructure, Invoice,
-  Payment, AuditLog, Timetable
+  Payment, AuditLog, Timetable, Announcement, AcademicYear
 ];
 
 // 2. Query Hooks for Multi-Tenant Isolation (Applied on each tenant model class)
@@ -179,6 +184,31 @@ Tenant.hasMany(PlatformAuditLog, { foreignKey: 'tenantId', as: 'platformAuditLog
 Tenant.belongsTo(SubscriptionPlan, { foreignKey: 'planType', targetKey: 'name', as: 'subscriptionPlan', constraints: false });
 SubscriptionPlan.hasMany(Tenant, { foreignKey: 'planType', sourceKey: 'name', as: 'tenants', constraints: false });
 
+// 21. Announcements
+Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'author' });
+User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
+
+// 22. Academic Years
+AcademicYear.hasMany(Class, { foreignKey: 'academicYearId', as: 'classes' });
+Class.belongsTo(AcademicYear, { foreignKey: 'academicYearId', as: 'academicYear' });
+
+AcademicYear.hasMany(Exam, { foreignKey: 'academicYearId', as: 'exams' });
+Exam.belongsTo(AcademicYear, { foreignKey: 'academicYearId', as: 'academicYear' });
+
+AcademicYear.hasMany(FeeStructure, { foreignKey: 'academicYearId', as: 'feeStructures' });
+FeeStructure.belongsTo(AcademicYear, { foreignKey: 'academicYearId', as: 'academicYear' });
+
+// 23. Platform Billing & Subscriptions (Razorpay)
+Tenant.hasOne(TenantSubscription, { foreignKey: 'tenantId', as: 'subscription' });
+TenantSubscription.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+TenantSubscription.belongsTo(SubscriptionPlan, { foreignKey: 'planId', as: 'plan' });
+
+Tenant.hasMany(PlatformPayment, { foreignKey: 'tenantId', as: 'platformPayments' });
+PlatformPayment.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+TenantSubscription.hasMany(PlatformPayment, { foreignKey: 'subscriptionId', as: 'payments' });
+PlatformPayment.belongsTo(TenantSubscription, { foreignKey: 'subscriptionId', as: 'subscription' });
+
 module.exports = {
   sequelize,
   Role,
@@ -202,4 +232,9 @@ module.exports = {
   PlatformAdmin,
   SubscriptionPlan,
   PlatformAuditLog,
+  Announcement,
+  AcademicYear,
+  TenantSubscription,
+  PlatformPayment,
+  PlatformWebhookEvent,
 };

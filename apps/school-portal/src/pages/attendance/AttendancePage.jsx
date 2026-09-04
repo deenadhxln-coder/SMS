@@ -3,15 +3,18 @@ import api from '@sms/api-client';
 import useAuthStore from '@sms/auth';
 import PageContainer from '../../components/layout/PageContainer';
 import { Button } from '@sms/ui-kit';
-import { Check, UserMinus, Clock, CalendarRange, ClipboardList } from 'lucide-react';
+import { exportToCSV } from '../../utils/csvExport';
+import { Check, UserMinus, Clock, CalendarRange, ClipboardList, Download } from 'lucide-react';
 
 const AttendancePage = () => {
   const { user } = useAuthStore();
-  const isTeacherOrAdmin = ['Super Admin', 'School Admin', 'Teacher'].includes(user.role);
+  const isTeacherOrAdmin = ['School Admin', 'Teacher'].includes(user.role);
 
   // States
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [students, setStudents] = useState([]);
   const [markings, setMarkings] = useState({});
@@ -21,13 +24,25 @@ const AttendancePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  const loadSections = async (classId) => {
+    try {
+      const res = await api.get('/academics/sections', { params: { classId } });
+      setSections(res.data.sections || []);
+    } catch (err) {
+      console.error('Failed to load sections:', err);
+      setSections([]);
+    }
+  };
+
   useEffect(() => {
     const loadClasses = async () => {
       try {
         const res = await api.get('/academics/classes');
         setClasses(res.data.classes);
         if (res.data.classes.length > 0) {
-          setSelectedClass(res.data.classes[0].id);
+          const firstClassId = res.data.classes[0].id;
+          setSelectedClass(firstClassId);
+          loadSections(firstClassId);
         }
       } catch (err) {
         console.error('Failed to load classes:', err);
@@ -40,6 +55,12 @@ const AttendancePage = () => {
       fetchStudentHistory();
     }
   }, [user]);
+
+  const handleClassChange = (newClassId) => {
+    setSelectedClass(newClassId);
+    setSelectedSection('');
+    loadSections(newClassId);
+  };
 
   const fetchStudentHistory = async () => {
     try {
@@ -58,9 +79,11 @@ const AttendancePage = () => {
     try {
       setLoading(true);
       setMessage({ type: '', text: '' });
-      const res = await api.get('/students', {
-        params: { classId: selectedClass, limit: 100, status: 'ACTIVE' }
-      });
+      const params = { classId: selectedClass, limit: 100, status: 'ACTIVE' };
+      if (selectedSection) {
+        params.sectionId = selectedSection;
+      }
+      const res = await api.get('/students', { params });
       setStudents(res.data.students);
       
       const attRes = await api.get('/attendance', {
@@ -88,7 +111,7 @@ const AttendancePage = () => {
     if (isTeacherOrAdmin && selectedClass) {
       fetchRoster();
     }
-  }, [selectedClass, date]);
+  }, [selectedClass, selectedSection, date]);
 
   const handleStatusChange = (studentId, status) => {
     setMarkings(prev => ({
@@ -128,10 +151,52 @@ const AttendancePage = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (isTeacherOrAdmin) {
+      const dataToExport = students.map((s) => ({
+        date,
+        studentName: s.user?.name || 'Student',
+        admissionNo: s.admissionNo || '',
+        status: markings[s.id] || 'PRESENT'
+      }));
+      const columns = [
+        { label: 'Date', key: 'date' },
+        { label: 'Student Name', key: 'studentName' },
+        { label: 'Admission No', key: 'admissionNo' },
+        { label: 'Status', key: 'status' }
+      ];
+      exportToCSV(dataToExport, columns, `attendance_register_${date}`);
+    } else {
+      const columns = [
+        { label: 'Date', accessor: (r) => new Date(r.date).toLocaleDateString() },
+        { label: 'Status', key: 'status' },
+        { label: 'Remarks', accessor: (r) => r.remarks || 'None' }
+      ];
+      exportToCSV(history, columns, 'my_attendance_history');
+    }
+  };
+
+  // Daily attendance KPI calculations
+  const totalStudents = students.length;
+  const presentCount = students.filter(s => markings[s.id] === 'PRESENT').length;
+  const absentCount = students.filter(s => markings[s.id] === 'ABSENT').length;
+  const lateCount = students.filter(s => markings[s.id] === 'LATE').length;
+  const attendanceRate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
+  const todayDateStr = new Date().toISOString().split('T')[0];
+
   return (
     <PageContainer
       title="Attendance Registry"
       description={isTeacherOrAdmin ? "Take daily registers and verify attendance trends" : "Review your calendar attendance entries"}
+      actions={
+        <Button
+          variant="outline"
+          onClick={handleExportCSV}
+          disabled={isTeacherOrAdmin ? !students.length : !history.length}
+        >
+          <Download size={16} className="mr-2" /> Export CSV
+        </Button>
+      }
     >
       {message.text && (
         <div className={`mb-6 p-4 rounded-xl text-xs font-semibold border ${
@@ -145,16 +210,29 @@ const AttendancePage = () => {
 
       {isTeacherOrAdmin ? (
         <div className="flex flex-col gap-6">
+          {/* Controls Bar */}
           <div className="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-wrap gap-4 items-center justify-between">
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex flex-col gap-1">
-                <label className="text-3xs font-extrabold uppercase tracking-wider text-slate-400">Class Selection</label>
+                <label className="text-3xs font-extrabold uppercase tracking-wider text-slate-400">Class</label>
                 <select
                   value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
+                  onChange={(e) => handleClassChange(e.target.value)}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none"
                 >
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-3xs font-extrabold uppercase tracking-wider text-slate-400">Section</label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none"
+                >
+                  <option value="">All Sections</option>
+                  {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
 
@@ -163,6 +241,7 @@ const AttendancePage = () => {
                 <input
                   type="date"
                   value={date}
+                  max={todayDateStr}
                   onChange={(e) => setDate(e.target.value)}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none"
                 />
@@ -172,6 +251,32 @@ const AttendancePage = () => {
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => markAll('PRESENT')}>All Present</Button>
               <Button variant="outline" onClick={() => markAll('ABSENT')}>All Absent</Button>
+            </div>
+          </div>
+
+          {/* Daily Attendance Summary KPI Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <span className="text-3xs font-extrabold uppercase tracking-wider text-slate-400">Roster Total</span>
+              <p className="text-xl font-black text-slate-800 mt-1">{totalStudents}</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <span className="text-3xs font-extrabold uppercase tracking-wider text-emerald-600">Present</span>
+              <p className="text-xl font-black text-emerald-600 mt-1">{presentCount}</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <span className="text-3xs font-extrabold uppercase tracking-wider text-rose-600">Absent</span>
+              <p className="text-xl font-black text-rose-600 mt-1">{absentCount}</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <span className="text-3xs font-extrabold uppercase tracking-wider text-amber-600">Late</span>
+              <p className="text-xl font-black text-amber-600 mt-1">{lateCount}</p>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+              <span className="text-3xs font-extrabold uppercase tracking-wider text-indigo-600">Attendance Rate</span>
+              <p className={`text-xl font-black mt-1 ${attendanceRate >= 75 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {attendanceRate}%
+              </p>
             </div>
           </div>
 

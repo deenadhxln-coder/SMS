@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpDown, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowUpDown, Search, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 
 const Table = ({
   columns,
@@ -12,6 +12,9 @@ const Table = ({
   onSearchChange = null,
   filters = null,
   emptyMessage = 'No records found',
+  emptyDescription = null,
+  emptyIcon = null,
+  emptyAction = null,
   dark = false
 }) => {
   const containerClass = dark 
@@ -23,11 +26,11 @@ const Table = ({
     : "p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-4 justify-between items-center";
     
   const inputClass = dark
-    ? "w-full pl-10 pr-4 py-2 text-sm bg-slate-950 border border-slate-850 rounded-xl focus:outline-none focus:border-purple-600 transition-all text-slate-200 placeholder-slate-500"
+    ? "w-full pl-10 pr-4 py-2 text-sm bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-purple-600 transition-all text-slate-200 placeholder-slate-500"
     : "w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder-slate-400";
 
   const theadClass = dark
-    ? "bg-slate-950 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-805"
+    ? "bg-slate-950 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-800"
     : "bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 border-b border-slate-100";
 
   const tbodyClass = dark
@@ -35,7 +38,7 @@ const Table = ({
     : "divide-y divide-slate-100 font-medium text-slate-700";
 
   const trClass = dark
-    ? "hover:bg-slate-850/30 transition-colors"
+    ? "hover:bg-slate-800/30 transition-colors"
     : "hover:bg-slate-50/50 transition-colors";
 
   const footerClass = dark
@@ -75,20 +78,39 @@ const Table = ({
         <table className="w-full border-collapse text-left text-sm">
           <thead className={theadClass}>
             <tr>
-              {columns.map((col, idx) => (
-                <th
-                  key={idx}
-                  className={`px-6 py-4 font-semibold ${col.sortable && sorting ? 'cursor-pointer select-none hover:text-slate-200 transition-colors' : ''}`}
-                  onClick={() => col.sortable && sorting && sorting.onSort(col.accessor)}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span>{col.header}</span>
-                    {col.sortable && sorting && (
-                      <ArrowUpDown size={14} className="text-slate-400" />
-                    )}
-                  </div>
-                </th>
-              ))}
+              {columns.map((col, idx) => {
+                const isSortable = Boolean(col.sortable && sorting);
+                const isCurrentSort = Boolean(sorting && sorting.sortBy === col.accessor);
+                const ariaSortValue = isCurrentSort 
+                  ? (sorting.sortOrder === 'asc' ? 'ascending' : 'descending') 
+                  : (isSortable ? 'none' : undefined);
+
+                return (
+                  <th
+                    key={idx}
+                    scope="col"
+                    aria-sort={ariaSortValue}
+                    role={isSortable ? 'button' : undefined}
+                    tabIndex={isSortable ? 0 : undefined}
+                    aria-label={isSortable ? `Sort by ${col.header}` : undefined}
+                    className={`px-6 py-4 font-semibold ${isSortable ? 'cursor-pointer select-none hover:text-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30' : ''}`}
+                    onClick={() => isSortable && sorting.onSort(col.accessor)}
+                    onKeyDown={(e) => {
+                      if (isSortable && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        sorting.onSort(col.accessor);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{col.header}</span>
+                      {isSortable && (
+                        <ArrowUpDown size={14} className={isCurrentSort ? "text-indigo-600" : "text-slate-400"} />
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className={tbodyClass}>
@@ -103,10 +125,28 @@ const Table = ({
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-20 text-center text-slate-400">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <span className="text-2xl">📁</span>
-                    <span className="text-sm font-medium">{emptyMessage}</span>
+                <td colSpan={columns.length} className="px-6 py-16 text-center">
+                  <div className="flex flex-col items-center justify-center max-w-sm mx-auto text-center animate-fade-in">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${
+                      dark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      {emptyIcon || <Inbox size={24} strokeWidth={1.75} />}
+                    </div>
+                    <p className={`text-sm font-semibold mb-1 ${
+                      dark ? 'text-slate-200' : 'text-slate-800'
+                    }`}>
+                      {emptyMessage}
+                    </p>
+                    {emptyDescription && (
+                      <p className="text-xs text-slate-400 mb-3 max-w-xs leading-relaxed">
+                        {emptyDescription}
+                      </p>
+                    )}
+                    {emptyAction && (
+                      <div className="mt-2">
+                        {emptyAction}
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -142,16 +182,20 @@ const Table = ({
           </span>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
               disabled={pagination.currentPage === 1}
               className={paginationButtonClass}
+              aria-label="Previous page"
             >
               <ChevronLeft size={16} />
             </button>
             <button
+              type="button"
               onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
               disabled={pagination.currentPage === pagination.totalPages}
               className={paginationButtonClass}
+              aria-label="Next page"
             >
               <ChevronRight size={16} />
             </button>

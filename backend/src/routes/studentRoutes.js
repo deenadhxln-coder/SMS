@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getStudents, getStudentById, createStudent, updateStudent, deleteStudent } = require('../controllers/studentController');
+const { getStudents, getMyChildren, getStudentById, createStudent, updateStudent, deleteStudent } = require('../controllers/studentController');
 const { protect } = require('../middleware/auth');
 const { authorize } = require('../middleware/roleGuard');
 const { validateParamsUUID } = require('../middleware/validate');
@@ -8,6 +8,7 @@ const { validateParamsUUID } = require('../middleware/validate');
 router.use(protect);
 
 router.get('/', authorize('Super Admin', 'School Admin', 'Teacher'), getStudents);
+router.get('/my-children', authorize('Parent'), getMyChildren);
 router.get('/:id', validateParamsUUID('id'), authorize('Super Admin', 'School Admin', 'Teacher', 'Student', 'Parent'), getStudentById);
 router.post('/', authorize('Super Admin', 'School Admin'), createStudent);
 router.put('/:id', validateParamsUUID('id'), authorize('Super Admin', 'School Admin'), updateStudent);

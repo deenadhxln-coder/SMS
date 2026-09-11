@@ -1,0 +1,8 @@
+- generic [ref=e2]:
+  - status "Loading DHXLN App Platform Control Center":
+    - generic:
+      - heading "DHXLN App" [level=1]
+      - paragraph: Platform Control Center
+      - progressbar
+      - generic: Initializing platform console...
+  - generic [ref=e3]: Loading Workspace...

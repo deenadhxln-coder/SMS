@@ -91,13 +91,38 @@ const OnboardSchoolModal = ({
       onClose={onClose}
       title="Deploy New School Tenant"
       size="lg"
+      footer={
+        <div className="flex items-center justify-end gap-2.5 w-full">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={isPending}
+            className="!py-2 !px-4 text-xs font-semibold"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="onboard-school-form"
+            onClick={handleSubmit(handleFormSubmit)}
+            variant="primary"
+            loading={isPending}
+            disabled={isPending}
+            icon={<Sparkles size={14} />}
+            className="!py-2 !px-5 text-xs font-semibold"
+          >
+            {isPending ? 'Deploying Tenant...' : 'Deploy School Tenant'}
+          </Button>
+        </div>
+      }
     >
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5 text-left py-1">
+      <form id="onboard-school-form" onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 text-left">
         
         {/* Error Banner */}
         {errorMessage && (
-          <div role="alert" className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-800 flex items-start gap-2.5 animate-fade-in">
-            <AlertTriangle size={16} className="text-rose-600 flex-shrink-0 mt-0.5" />
+          <div role="alert" className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-semibold text-rose-800 flex items-start gap-2.5 animate-fade-in">
+            <AlertTriangle size={15} className="text-rose-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="font-bold text-rose-900">Onboarding Request Failed</p>
               <p className="text-[11px] font-normal text-rose-700 mt-0.5">{errorMessage}</p>
@@ -106,15 +131,17 @@ const OnboardSchoolModal = ({
         )}
 
         {/* Step 1: School Identity */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <Building size={16} className="text-indigo-600" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
+            <div className="w-5 h-5 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Building size={13} />
+            </div>
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
               1. Institutional Identity & Workspace
             </h4>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Input
               label="School Institution Name"
               placeholder="e.g. St. Jude High School"
@@ -131,16 +158,16 @@ const OnboardSchoolModal = ({
                 required
                 {...register('slug')}
               />
-              <div className="mt-1 flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Portal domain:</span>
-                <span className="text-indigo-600 font-mono font-medium truncate max-w-[200px]">
+              <div className="mt-1 flex flex-wrap items-center justify-between text-[11px] gap-1">
+                <span className="text-slate-400 text-[10px]">Portal URL:</span>
+                <span className="text-indigo-600 font-mono font-medium text-[11px] truncate max-w-[200px]">
                   {watchSlug ? `https://${watchSlug}.sms.edu` : 'https://[slug].sms.edu'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <Input
               label="Official Institutional Contact Email"
               type="email"
@@ -150,40 +177,43 @@ const OnboardSchoolModal = ({
               {...register('contactEmail')}
             />
 
-            <div className="flex flex-col space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="planType" className="text-xs font-semibold text-slate-700 select-none">
                 Subscription Plan Tier <span className="text-rose-500">*</span>
               </label>
               <select
+                id="planType"
                 {...register('planType')}
-                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
               >
-                <option value="FREE">FREE — Starter Evaluation Tier (100 Students)</option>
-                <option value="STANDARD">STANDARD — Growth School Tier (500 Students)</option>
-                <option value="PREMIUM">PREMIUM — Enterprise Scale Tier (Unlimited)</option>
+                <option value="FREE">FREE — Starter Tier (100 Students)</option>
+                <option value="STANDARD">STANDARD — Growth Tier (500 Students)</option>
+                <option value="PREMIUM">PREMIUM — Enterprise Tier (Unlimited)</option>
               </select>
             </div>
           </div>
         </div>
 
         {/* Step 2: Primary School Administrator */}
-        <div className="space-y-4 pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-            <ShieldCheck size={16} className="text-indigo-600" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-              2. Initial School Administrator
+        <div className="space-y-3 pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-2 pb-1.5 border-b border-slate-100">
+            <div className="w-5 h-5 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ShieldCheck size={13} />
+            </div>
+            <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-800">
+              2. Initial Administrator Credentials
             </h4>
           </div>
 
-          <Input
-            label="Administrator Full Name"
-            placeholder="e.g. Dr. Eleanor Vance"
-            error={errors.adminName}
-            required
-            {...register('adminName')}
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <Input
+              label="Administrator Full Name"
+              placeholder="e.g. Dr. Eleanor Vance"
+              error={errors.adminName}
+              required
+              {...register('adminName')}
+            />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Admin Login Email"
               type="email"
@@ -192,7 +222,9 @@ const OnboardSchoolModal = ({
               required
               {...register('adminEmail')}
             />
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
             <Input
               label="Temporary Password"
               type="password"
@@ -201,32 +233,11 @@ const OnboardSchoolModal = ({
               required
               {...register('adminPassword')}
             />
+
+            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-[11px] text-slate-500 leading-relaxed mt-0 sm:mt-5">
+              <strong className="text-slate-700 font-semibold">Security Note:</strong> Temporary credentials will grant the initial administrator full management rights over this school's portal.
+            </div>
           </div>
-
-          <p className="text-[11px] text-slate-400 leading-normal bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-            <strong>Security Notice:</strong> The School Admin will receive platform credentials to manage their school's users, academic calendars, and daily school operations.
-          </p>
-        </div>
-
-        {/* Modal Actions */}
-        <div className="sticky bottom-0 -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 bg-white/95 backdrop-blur-xs border-t border-slate-100 flex justify-end items-center gap-3 z-10 mt-6 shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.03)]">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            loading={isPending}
-            disabled={isPending}
-            icon={<Sparkles size={16} />}
-          >
-            {isPending ? 'Deploying Tenant...' : 'Deploy School Tenant'}
-          </Button>
         </div>
       </form>
     </Modal>

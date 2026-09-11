@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   X, 
   Building, 
@@ -10,10 +11,7 @@ import {
   Crown, 
   Copy, 
   Check, 
-  ExternalLink,
-  Activity, 
-  Clock, 
-  AlertTriangle,
+  Clock,
   FileText
 } from 'lucide-react';
 import { Button, Badge } from '@sms/ui-kit';
@@ -85,7 +83,7 @@ const TenantDetailDrawer = ({
   const planSpec = planTierSpecs[tenant.planType] || planTierSpecs.FREE;
   const PlanIcon = planSpec.icon;
 
-  return (
+  const drawerContent = (
     <div className="fixed inset-0 z-50 overflow-hidden text-left" role="dialog" aria-modal="true" aria-label="Tenant Details">
       {/* Backdrop */}
       <div 
@@ -107,146 +105,165 @@ const TenantDetailDrawer = ({
                 <Building size={20} />
               </div>
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-slate-900 truncate">
-                  {tenant.schoolName}
-                </h3>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs font-mono text-indigo-600 font-medium truncate">
-                    /{tenant.slug}
-                  </span>
-                  <button
-                    onClick={() => handleCopy(tenant.slug, 'slug')}
-                    className="text-slate-400 hover:text-slate-600 p-0.5"
-                    title="Copy slug"
-                  >
-                    {copiedKey === 'slug' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                  </button>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-base text-slate-900 truncate">
+                    {tenant.schoolName}
+                  </h3>
+                  <Badge variant={tenant.status === 'ACTIVE' ? 'success' : 'danger'}>
+                    {tenant.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                  <span className="font-mono text-indigo-600 font-semibold">{tenant.slug}.sms.edu</span>
+                  <span>•</span>
+                  <span>ID: {tenant.id?.slice(0, 8)}...</span>
                 </div>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-colors"
-              aria-label="Close panel"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Close drawer"
             >
               <X size={18} />
             </button>
           </div>
 
-          {/* Drawer Body */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-            
-            {/* Status & Plan Pill Strip */}
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Status:</span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                  tenant.status === 'ACTIVE' 
-                    ? 'bg-emerald-100 text-emerald-800' 
-                    : 'bg-rose-100 text-rose-800'
-                }`}>
-                  {tenant.status}
-                </span>
-              </div>
+          {/* Drawer Content */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Tier:</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  {tenant.planType}
-                </span>
-              </div>
-            </div>
-
-            {/* Section 1: Institutional Identity Details */}
+            {/* Section 1: Tenant Profile */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Institutional Details
+                School Profile & Infrastructure
               </h4>
-              <div className="grid grid-cols-1 gap-2.5 text-xs">
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <Mail size={14} className="text-slate-400" /> Contact Email
-                  </span>
-                  <span className="font-semibold text-slate-800 font-mono">
-                    {tenant.contactEmail || 'Not provided'}
-                  </span>
-                </div>
-
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <Globe size={14} className="text-slate-400" /> Portal Subdomain
-                  </span>
-                  <span className="font-semibold text-indigo-600 font-mono truncate max-w-[220px]">
-                    https://{tenant.slug}.sms.edu
-                  </span>
-                </div>
-
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <Calendar size={14} className="text-slate-400" /> Onboarded On
-                  </span>
-                  <span className="font-semibold text-slate-800">
-                    {tenant.createdAt ? new Date(tenant.createdAt).toLocaleString() : '—'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                  <span className="text-slate-500 flex items-center gap-1.5">
-                    <FileText size={14} className="text-slate-400" /> System Tenant UUID
-                  </span>
-                  <div className="flex items-center gap-1 font-mono text-[11px] text-slate-600">
-                    <span>{tenant.id?.slice(0, 13)}...</span>
+              <div className="grid grid-cols-1 gap-2 text-xs">
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Globe size={14} className="text-slate-400" />
+                    <span>Institutional Domain</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-mono text-indigo-600 font-semibold">
+                    <span>https://{tenant.slug}.sms.edu</span>
                     <button
-                      onClick={() => handleCopy(tenant.id, 'id')}
-                      className="text-slate-400 hover:text-slate-600 p-0.5"
-                      title="Copy full tenant ID"
+                      onClick={() => handleCopy(`https://${tenant.slug}.sms.edu`, 'domain')}
+                      className="text-slate-400 hover:text-indigo-600 p-0.5 rounded"
+                      title="Copy URL"
                     >
-                      {copiedKey === 'id' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                      {copiedKey === 'domain' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
                     </button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Mail size={14} className="text-slate-400" />
+                    <span>Contact Email</span>
+                  </div>
+                  <span className="font-semibold text-slate-800">{tenant.contactEmail || 'Unassigned'}</span>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Calendar size={14} className="text-slate-400" />
+                    <span>Onboarded On</span>
+                  </div>
+                  <span className="text-slate-700 font-medium">
+                    {tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    }) : '—'}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Section 2: Subscription Allocation */}
-            <div className="space-y-3">
+            {/* Section 2: Subscription & Limits */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Subscription Allocation
                 </h4>
-                <Button
-                  variant="outline"
+                <button
                   onClick={() => onOpenPlanModal(tenant)}
-                  className="!px-2.5 !py-1 !text-xs !font-semibold text-indigo-600 hover:bg-indigo-50 border-indigo-200"
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
                 >
                   Change Tier
-                </Button>
+                </button>
               </div>
 
-              <div className={`p-4 rounded-xl border ${planSpec.color} flex items-start gap-3`}>
-                <PlanIcon size={20} className="flex-shrink-0 mt-0.5" />
-                <div className="space-y-1 text-xs flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm">{planSpec.name}</span>
-                    <span className="font-bold uppercase tracking-wider text-[10px]">{tenant.planType}</span>
-                  </div>
-                  <div className="pt-1 space-y-1 text-slate-600">
-                    <p>• Max Student Quota: <strong>{planSpec.studentsLimit}</strong></p>
-                    <p>• Platform SLA: <strong>{planSpec.support}</strong></p>
-                    {tenant.subscription && (
-                      <p>• Razorpay Status: <strong className="uppercase font-mono text-[11px] text-indigo-700">{tenant.subscription.status || 'Active'}</strong></p>
-                    )}
+              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-8 h-8 rounded-lg ${planSpec.color} flex items-center justify-center border flex-shrink-0`}>
+                      <PlanIcon size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-slate-900">{tenant.planType}</span>
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {planSpec.name}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-400">{planSpec.support}</span>
+                    </div>
                   </div>
                 </div>
+
+                {/* Quota specs */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Enrolled Students</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {tenant.studentCount ?? 0}
+                      <span className="text-slate-400 font-normal text-xs"> / {planSpec.studentsLimit}</span>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Active Faculty</span>
+                    <span className="font-bold text-slate-800 text-sm">
+                      {tenant.teacherCount ?? 0}
+                      <span className="text-slate-400 font-normal text-xs"> staff</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Student limit progress bar */}
+                {tenant.planType !== 'PREMIUM' && (
+                  <div className="pt-2">
+                    {(() => {
+                      const limit = tenant.planType === 'FREE' ? 100 : 500;
+                      const count = tenant.studentCount || 0;
+                      const pct = Math.min(Math.round((count / limit) * 100), 100);
+                      const isNearLimit = pct >= 80;
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-500">Student Quota Used</span>
+                            <span className={`font-semibold ${isNearLimit ? 'text-amber-600' : 'text-slate-700'}`}>{pct}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                isNearLimit ? 'bg-amber-500' : 'bg-indigo-600'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Section 3: Recent Activity on this Tenant */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                <span>Recent Platform Activity</span>
-                <span className="text-[10px] text-slate-400 font-normal">{tenantLogs.length} events recorded</span>
+            {/* Section 3: Audit Trail for this Tenant */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Recent Tenant Audits ({tenantLogs.length})
               </h4>
 
               {tenantLogs.length === 0 ? (
@@ -309,6 +326,8 @@ const TenantDetailDrawer = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(drawerContent, document.body) : null;
 };
 
 export default TenantDetailDrawer;

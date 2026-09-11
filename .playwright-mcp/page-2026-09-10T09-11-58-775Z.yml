@@ -1,0 +1,397 @@
+- generic [ref=f1e2]:
+  - status "Loading DHXLN App Platform Control Center":
+    - generic:
+      - heading "DHXLN App" [level=1]
+      - paragraph: Platform Control Center
+      - progressbar
+      - generic: Initializing platform console...
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e6]:
+        - link "DHXLN Control Platform SaaS" [ref=f1e7] [cursor=pointer]:
+          - /url: /
+          - generic [ref=f1e12]:
+            - generic [ref=f1e13]:
+              - generic [ref=f1e14]: DHXLN
+              - generic [ref=f1e15]: Control
+            - generic [ref=f1e16]: Platform SaaS
+        - navigation [ref=f1e17]:
+          - link "Overview" [ref=f1e18] [cursor=pointer]:
+            - /url: "#overview"
+          - link "Features" [ref=f1e19] [cursor=pointer]:
+            - /url: "#features"
+          - link "Showcase" [ref=f1e20] [cursor=pointer]:
+            - /url: "#showcase"
+          - link "Architecture" [ref=f1e21] [cursor=pointer]:
+            - /url: "#architecture"
+          - link "Security" [ref=f1e22] [cursor=pointer]:
+            - /url: "#security"
+        - generic [ref=f1e23]:
+          - generic [ref=f1e24]: Engine Live
+          - link "Sign In" [ref=f1e27] [cursor=pointer]:
+            - /url: /login
+    - main [ref=f1e31]:
+      - generic [ref=f1e33]:
+        - generic [ref=f1e34]:
+          - generic [ref=f1e35]: THE CONTROL CENTER FOR MODERN SCHOOL OPERATIONS
+          - heading "Run your school platform from one powerful control center." [level=1] [ref=f1e40]
+          - paragraph [ref=f1e41]: DHXLN gives platform administrators the tools to manage schools, monitor operations, understand growth, and keep a multi-tenant education platform running smoothly.
+          - generic [ref=f1e42]:
+            - link "Sign In to Platform" [ref=f1e43] [cursor=pointer]:
+              - /url: /login
+            - link "Explore Platform" [ref=f1e47] [cursor=pointer]:
+              - /url: "#architecture"
+          - generic [ref=f1e53]:
+            - generic [ref=f1e54]: Multi-Tenant Isolation
+            - generic [ref=f1e58]: Verified JWT Access
+            - generic [ref=f1e62]: Real-time Telemetry
+        - generic [ref=f1e67]:
+          - generic [ref=f1e68]:
+            - generic [ref=f1e73]:
+              - generic [ref=f1e74]: https://
+              - text: console.dhxln.io/overview
+            - generic [ref=f1e75]: SYSTEM LIVE
+          - generic [ref=f1e77]:
+            - generic [ref=f1e78]:
+              - generic [ref=f1e79]:
+                - heading "Global Platform Control Center" [level=2] [ref=f1e80]
+                - paragraph [ref=f1e81]: Real-time multi-tenant governance, subscription quotas, and system telemetry
+              - generic [ref=f1e82]: Super Admin Console
+            - generic [ref=f1e84]:
+              - generic [ref=f1e85]:
+                - generic [ref=f1e86]: Active Deployments
+                - generic [ref=f1e92]: "14"
+                - generic [ref=f1e93]: 100% Isolated Subdomains
+              - generic [ref=f1e97]:
+                - generic [ref=f1e98]: Engine Availability
+                - generic [ref=f1e102]: 99.98%
+                - generic [ref=f1e103]: MySQL Pool + Redis Cache
+              - generic [ref=f1e105]:
+                - generic [ref=f1e106]: Audited Platform Events
+                - generic [ref=f1e111]: 3,420
+                - generic [ref=f1e112]: Forensic Traceability
+            - generic [ref=f1e114]:
+              - generic [ref=f1e115]:
+                - generic [ref=f1e116]:
+                  - generic [ref=f1e117]: Monitored Institutional Tenants
+                  - generic [ref=f1e118]: 3 Active Examples
+                - generic [ref=f1e119]:
+                  - generic [ref=f1e120]:
+                    - generic [ref=f1e121]:
+                      - generic [ref=f1e122]: ST
+                      - generic [ref=f1e123]:
+                        - generic [ref=f1e124]: St. Jude High School
+                        - text: https://st-jude.sms.edu
+                    - generic [ref=f1e125]: PREMIUM
+                  - generic [ref=f1e126]:
+                    - generic [ref=f1e127]:
+                      - generic [ref=f1e128]: OR
+                      - generic [ref=f1e129]:
+                        - generic [ref=f1e130]: Oakridge Academy
+                        - text: https://oakridge.sms.edu
+                    - generic [ref=f1e131]: STANDARD
+                  - generic [ref=f1e132]:
+                    - generic [ref=f1e133]:
+                      - generic [ref=f1e134]: HZ
+                      - generic [ref=f1e135]:
+                        - generic [ref=f1e136]: Horizon STEM Institute
+                        - text: https://horizon.sms.edu
+                    - generic [ref=f1e137]: FREE TIER
+              - generic [ref=f1e138]:
+                - generic [ref=f1e139]:
+                  - generic [ref=f1e140]: Audit Event Stream
+                  - generic [ref=f1e141]: REAL-TIME
+                - generic [ref=f1e142]:
+                  - generic [ref=f1e143]:
+                    - generic [ref=f1e144]:
+                      - generic [ref=f1e145]: DEPLOY_TENANT
+                      - generic [ref=f1e146]: 1m ago
+                    - paragraph [ref=f1e147]: "slug: st-jude • plan: PREMIUM"
+                  - generic [ref=f1e148]:
+                    - generic [ref=f1e149]:
+                      - generic [ref=f1e150]: MIGRATE_TIER
+                      - generic [ref=f1e151]: 14m ago
+                    - paragraph [ref=f1e152]: "oakridge: FREE → STANDARD"
+                  - generic [ref=f1e153]:
+                    - generic [ref=f1e154]:
+                      - generic [ref=f1e155]: HEALTH_PROBE_OK
+                      - generic [ref=f1e156]: Live
+                    - paragraph [ref=f1e157]: "Latency: 12ms • All Nodes Green"
+      - generic [ref=f1e160]:
+        - generic [ref=f1e166]:
+          - heading "Zero-Trust Tenant Boundaries" [level=3] [ref=f1e167]
+          - paragraph [ref=f1e168]: Cryptographically verified JWT tenant context
+        - generic [ref=f1e175]:
+          - heading "Strict Data Isolation" [level=3] [ref=f1e176]
+          - paragraph [ref=f1e177]: 100% tenant-scoped database queries & foreign keys
+        - generic [ref=f1e182]:
+          - heading "Real-Time Telemetry" [level=3] [ref=f1e183]
+          - paragraph [ref=f1e184]: Redis-cached metrics & isolated WebSocket channels
+        - generic [ref=f1e191]:
+          - heading "Enterprise Multi-Tenancy" [level=3] [ref=f1e192]
+          - paragraph [ref=f1e193]: Centralized administration with autonomous school nodes
+      - generic [ref=f1e195]:
+        - generic [ref=f1e196]:
+          - generic [ref=f1e197]: CORE PLATFORM CAPABILITIES
+          - heading "Everything your platform team needs to stay in control." [level=2] [ref=f1e202]
+          - paragraph [ref=f1e203]: DHXLN provides a unified platform control center engineered specifically for multi-tenant educational networks, SaaS operators, and educational technology teams.
+        - generic [ref=f1e204]:
+          - generic [ref=f1e205]:
+            - generic [ref=f1e206]:
+              - generic [ref=f1e207]: "01"
+              - generic [ref=f1e214]:
+                - generic [ref=f1e215]: Lifecycle & Provisioning
+                - heading "Tenant Management" [level=3] [ref=f1e216]
+              - paragraph [ref=f1e217]: Manage schools, subscriptions, status, and tenant lifecycle from one place with automatic subdomain routing and initial admin provisioning.
+            - generic [ref=f1e218]:
+              - generic [ref=f1e219]: Engine Feature
+              - generic [ref=f1e220]: Production Ready
+          - generic [ref=f1e223]:
+            - generic [ref=f1e224]:
+              - generic [ref=f1e225]: "02"
+              - generic [ref=f1e232]:
+                - generic [ref=f1e233]: Cross-School Governance
+                - heading "Platform Operations" [level=3] [ref=f1e234]
+              - paragraph [ref=f1e235]: Understand what is happening across your entire school ecosystem with global overview metrics, status monitoring, and centralized administrative controls.
+            - generic [ref=f1e236]:
+              - generic [ref=f1e237]: Engine Feature
+              - generic [ref=f1e238]: Production Ready
+          - generic [ref=f1e241]:
+            - generic [ref=f1e242]:
+              - generic [ref=f1e243]: "03"
+              - generic [ref=f1e249]:
+                - generic [ref=f1e250]: Forensic Accountability
+                - heading "Audit & Accountability" [level=3] [ref=f1e251]
+              - paragraph [ref=f1e252]: Track important platform activity with searchable audit history capturing tenant mutations, plan upgrades, and security events with full JSON payloads.
+            - generic [ref=f1e253]:
+              - generic [ref=f1e254]: Engine Feature
+              - generic [ref=f1e255]: Production Ready
+          - generic [ref=f1e258]:
+            - generic [ref=f1e259]:
+              - generic [ref=f1e260]: "04"
+              - generic [ref=f1e265]:
+                - generic [ref=f1e266]: Operational Intelligence
+                - heading "Platform Analytics" [level=3] [ref=f1e267]
+              - paragraph [ref=f1e268]: Turn platform activity into useful operational insight with distribution charts, student population growth curves, and capacity quota metrics.
+            - generic [ref=f1e269]:
+              - generic [ref=f1e270]: Engine Feature
+              - generic [ref=f1e271]: Production Ready
+          - generic [ref=f1e274]:
+            - generic [ref=f1e275]:
+              - generic [ref=f1e276]: "05"
+              - generic [ref=f1e281]:
+                - generic [ref=f1e282]: Infrastructure Telemetry
+                - heading "System Health" [level=3] [ref=f1e283]
+              - paragraph [ref=f1e284]: Monitor platform health and connectivity from a centralized view, checking MySQL connection pools, Redis cache status, and WebSocket socket channels.
+            - generic [ref=f1e285]:
+              - generic [ref=f1e286]: Engine Feature
+              - generic [ref=f1e287]: Production Ready
+          - generic [ref=f1e290]:
+            - generic [ref=f1e291]:
+              - generic [ref=f1e292]: "06"
+              - generic [ref=f1e298]:
+                - generic [ref=f1e299]: Cryptographic Scoping
+                - heading "Secure Multi-Tenancy" [level=3] [ref=f1e300]
+              - paragraph [ref=f1e301]: Keep schools isolated while giving platform administrators centralized control through verified JWT context and strictly parameterized queries.
+            - generic [ref=f1e302]:
+              - generic [ref=f1e303]: Engine Feature
+              - generic [ref=f1e304]: Production Ready
+      - generic [ref=f1e308]:
+        - generic [ref=f1e309]:
+          - generic [ref=f1e310]: PRODUCT SHOWCASE
+          - heading "See your entire platform at a glance." [level=2] [ref=f1e315]
+          - paragraph [ref=f1e316]: Explore the specialized operational workspaces built into the DHXLN Control Center. Every view is designed for high clarity, fast triage, and strict multi-tenant governance.
+        - generic [ref=f1e317]:
+          - button "Tenant Management" [ref=f1e318] [cursor=pointer]
+          - button "Platform Overview" [ref=f1e324] [cursor=pointer]
+          - button "Audit Trail" [ref=f1e330] [cursor=pointer]
+          - button "System Health" [ref=f1e335] [cursor=pointer]
+        - generic [ref=f1e339]:
+          - generic [ref=f1e340]:
+            - generic [ref=f1e341]: DHXLN Control Center • Tenant Management
+            - generic [ref=f1e346]:
+              - generic [ref=f1e347]: ●
+              - text: Production Viewport
+          - generic [ref=f1e349]:
+            - generic [ref=f1e350]:
+              - generic [ref=f1e351]:
+                - heading "School Tenant Workspace" [level=3] [ref=f1e352]
+                - paragraph [ref=f1e353]: Manage multi-tenant school deployments, subscription tiers, and subdomains
+              - generic [ref=f1e354]: Onboard School
+            - generic [ref=f1e357]:
+              - generic [ref=f1e358]: Filter by school or slug...
+              - generic [ref=f1e363]:
+                - generic [ref=f1e364]: All Statuses
+                - generic [ref=f1e365]: All Tiers
+            - table [ref=f1e367]:
+              - rowgroup [ref=f1e368]:
+                - row [ref=f1e369]:
+                  - columnheader "School Institution" [ref=f1e370]
+                  - columnheader "Contact Email" [ref=f1e371]
+                  - columnheader "Subscription Tier" [ref=f1e372]
+                  - columnheader "Status" [ref=f1e373]
+                  - columnheader "Operations" [ref=f1e374]
+              - rowgroup [ref=f1e375]:
+                - row [ref=f1e376]:
+                  - cell "St. Jude High School /st-jude" [ref=f1e377]:
+                    - generic [ref=f1e378]: St. Jude High School
+                    - text: /st-jude
+                  - cell "principal@stjude.edu" [ref=f1e379]
+                  - cell "PREMIUM" [ref=f1e380]
+                  - cell "ACTIVE" [ref=f1e381]
+                  - cell "Details Tier" [ref=f1e382]:
+                    - generic [ref=f1e383]:
+                      - generic [ref=f1e384]: Details
+                      - generic [ref=f1e385]: Tier
+                - row [ref=f1e386]:
+                  - cell "Oakridge Academy /oakridge" [ref=f1e387]:
+                    - generic [ref=f1e388]: Oakridge Academy
+                    - text: /oakridge
+                  - cell "admin@oakridge.edu" [ref=f1e389]
+                  - cell "STANDARD" [ref=f1e390]
+                  - cell "ACTIVE" [ref=f1e391]
+                  - cell "Details Tier" [ref=f1e392]:
+                    - generic [ref=f1e393]:
+                      - generic [ref=f1e394]: Details
+                      - generic [ref=f1e395]: Tier
+      - generic [ref=f1e397]:
+        - generic [ref=f1e398]:
+          - generic [ref=f1e399]: PLATFORM WORKFLOW
+          - heading "Three steps from institutional onboarding to scale." [level=2] [ref=f1e404]
+          - paragraph [ref=f1e405]: A cohesive administrative lifecycle built to reduce operational friction and provide effortless governance at any school scale.
+        - generic [ref=f1e406]:
+          - generic [ref=f1e407]:
+            - generic [ref=f1e408]:
+              - generic [ref=f1e409]: "01"
+              - generic [ref=f1e416]:
+                - heading "Onboard" [level=3] [ref=f1e417]
+                - paragraph [ref=f1e418]: Instant Tenant Provisioning
+              - paragraph [ref=f1e419]: Deploy a new school institution with dedicated subdomain allocation, default academic year bootstrapping, and initial administrator credential generation in seconds.
+            - generic [ref=f1e420]: Step 01 Workflow
+          - generic [ref=f1e422]:
+            - generic [ref=f1e423]:
+              - generic [ref=f1e424]: "02"
+              - generic [ref=f1e429]:
+                - heading "Operate" [level=3] [ref=f1e430]
+                - paragraph [ref=f1e431]: Centralized Governance
+              - paragraph [ref=f1e432]: Manage institutional subscriptions, adjust plan tiers (FREE, STANDARD, PREMIUM), monitor tenant statuses, and maintain centralized administrative control.
+            - generic [ref=f1e433]: Step 02 Workflow
+          - generic [ref=f1e435]:
+            - generic [ref=f1e436]:
+              - generic [ref=f1e437]: "03"
+              - generic [ref=f1e442]:
+                - heading "Understand" [level=3] [ref=f1e443]
+                - paragraph [ref=f1e444]: Telemetry & Forensic Audit
+              - paragraph [ref=f1e445]: Leverage immutable audit trails, multi-school operational analytics, and live infrastructure health monitors to make confident, data-driven platform decisions.
+            - generic [ref=f1e446]: Step 03 Workflow
+      - generic [ref=f1e449]:
+        - generic [ref=f1e450]:
+          - generic [ref=f1e451]: SECURITY & ISOLATION ARCHITECTURE
+          - heading "Built for a multi-tenant world." [level=2] [ref=f1e456]
+          - paragraph [ref=f1e457]: DHXLN is architected from the ground up around strict tenant isolation, zero client trust, verified authentication contexts, and complete administrative accountability.
+        - generic [ref=f1e458]:
+          - generic [ref=f1e459]:
+            - heading "Cryptographic JWT Context" [level=3] [ref=f1e464]
+            - paragraph [ref=f1e465]: Tenant identification is strictly validated from signed JWT claims. Client-supplied headers, request bodies, or URL parameters are never trusted for tenant scoping.
+          - generic [ref=f1e466]:
+            - heading "Parameterized Query Isolation" [level=3] [ref=f1e472]
+            - paragraph [ref=f1e473]: All tenant queries are explicitly parameterized and scoped by tenant ID, preventing data leakage and ensuring complete cross-school isolation at the database layer.
+          - generic [ref=f1e474]:
+            - heading "Role-Based Access Governance" [level=3] [ref=f1e480]
+            - paragraph [ref=f1e481]: Multi-tiered authorization segregates Platform Super Administrators from School Administrators, Teachers, Students, and Parents with dedicated middleware guards.
+          - generic [ref=f1e482]:
+            - heading "Tenant-Scoped Socket Channels" [level=3] [ref=f1e490]
+            - paragraph [ref=f1e491]: Real-time WebSocket events and announcements are isolated to verified tenant-specific socket rooms, ensuring zero cross-tenant event bleed.
+          - generic [ref=f1e492]:
+            - heading "Isolated Cache Namespaces" [level=3] [ref=f1e497]
+            - paragraph [ref=f1e498]: In-memory Redis cache keys and session states are prefixed by verified tenant identifiers to ensure strict isolation across cached operations.
+          - generic [ref=f1e499]:
+            - heading "Searchable Platform Auditability" [level=3] [ref=f1e504]
+            - paragraph [ref=f1e505]: Every administrative mutation, onboarding action, and plan migration is recorded with timestamped metadata for complete operational traceability.
+      - generic [ref=f1e507]:
+        - generic [ref=f1e508]:
+          - generic [ref=f1e509]: ADMINISTRATIVE CLARITY
+          - heading "Clear answers to every operational question." [level=2] [ref=f1e514]
+          - paragraph [ref=f1e515]: DHXLN simplifies platform governance by surfacing the exact insights platform administrators need without manual database queries or blind spots.
+        - generic [ref=f1e516]:
+          - generic [ref=f1e517]:
+            - generic [ref=f1e519]:
+              - heading "\"How is the platform doing?\"" [level=3] [ref=f1e520]
+              - paragraph [ref=f1e521]: Instant telemetry across all institutional nodes, total active schools, and aggregate student allocations.
+            - generic [ref=f1e525]:
+              - generic [ref=f1e526]:
+                - generic [ref=f1e527]: Aggregated Status
+                - generic [ref=f1e528]: ● 100% Online
+              - paragraph [ref=f1e529]: All 14 Tenant Instances Active
+          - generic [ref=f1e530]:
+            - generic [ref=f1e532]:
+              - heading "\"Which schools need attention?\"" [level=3] [ref=f1e533]
+              - paragraph [ref=f1e534]: Track subscription tier capacity quotas (100, 500, Unlimited) and identify schools nearing student limits.
+            - generic [ref=f1e538]:
+              - generic [ref=f1e539]:
+                - generic [ref=f1e540]: St. Jude High School
+                - generic [ref=f1e541]: PREMIUM
+              - paragraph [ref=f1e542]: Uncapped Quota • Healthy
+          - generic [ref=f1e543]:
+            - generic [ref=f1e545]:
+              - heading "\"What changed recently?\"" [level=3] [ref=f1e546]
+              - paragraph [ref=f1e547]: Searchable platform audit trail documenting tenant additions, plan migrations, and admin actions.
+            - generic [ref=f1e552]:
+              - generic [ref=f1e553]:
+                - generic [ref=f1e554]: DEPLOY_TENANT
+                - generic [ref=f1e555]: Recorded
+              - paragraph [ref=f1e556]: "Provisioned: Oakridge Academy"
+          - generic [ref=f1e557]:
+            - generic [ref=f1e559]:
+              - heading "\"Are core systems healthy?\"" [level=3] [ref=f1e560]
+              - paragraph [ref=f1e561]: Dedicated liveness & readiness health checks monitoring MySQL connection pool, Redis cache, and WebSockets.
+            - generic [ref=f1e566]:
+              - generic [ref=f1e567]:
+                - generic [ref=f1e568]: Readiness Probe
+                - generic [ref=f1e569]: READY
+              - paragraph [ref=f1e570]: "DB: OK • Redis: OK • Latency: 14ms"
+      - generic [ref=f1e572]:
+        - generic [ref=f1e573]: DHXLN PLATFORM CONTROL
+        - generic [ref=f1e578]:
+          - heading "Your platform. One control center." [level=2] [ref=f1e579]
+          - paragraph [ref=f1e580]: Bring tenant management, operations, analytics, and platform visibility together with DHXLN.
+        - link "Sign In to DHXLN" [ref=f1e582] [cursor=pointer]:
+          - /url: /login
+        - generic [ref=f1e586]: Restricted to authorized Super Administrators
+    - contentinfo [ref=f1e591]:
+      - generic [ref=f1e592]:
+        - generic [ref=f1e593]:
+          - generic [ref=f1e594]:
+            - generic [ref=f1e595]: DHXLN Platform
+            - paragraph [ref=f1e601]: The centralized multi-tenant control engine powering modern school management SaaS deployments, institutional tenant lifecycles, and operational telemetry.
+            - generic [ref=f1e602]: Platform Core v2.0 • Online
+          - generic [ref=f1e605]:
+            - heading "Platform" [level=4] [ref=f1e606]
+            - list [ref=f1e607]:
+              - listitem [ref=f1e608]:
+                - link "Overview" [ref=f1e609] [cursor=pointer]:
+                  - /url: "#overview"
+              - listitem [ref=f1e610]:
+                - link "Core Capabilities" [ref=f1e611] [cursor=pointer]:
+                  - /url: "#features"
+              - listitem [ref=f1e612]:
+                - link "Product Showcase" [ref=f1e613] [cursor=pointer]:
+                  - /url: "#showcase"
+              - listitem [ref=f1e614]:
+                - link "Platform Workflow" [ref=f1e615] [cursor=pointer]:
+                  - /url: "#architecture"
+              - listitem [ref=f1e616]:
+                - link "Security Architecture" [ref=f1e617] [cursor=pointer]:
+                  - /url: "#security"
+          - generic [ref=f1e618]:
+            - heading "Operations" [level=4] [ref=f1e619]
+            - list [ref=f1e620]:
+              - listitem [ref=f1e621]:
+                - link "Sign In to Platform" [ref=f1e622] [cursor=pointer]:
+                  - /url: /login
+        - generic [ref=f1e627]:
+          - paragraph [ref=f1e628]: © 2026 DHXLN App. Multi-Tenant School Management SaaS Platform.
+          - generic [ref=f1e629]:
+            - generic [ref=f1e630]: Isolated Tenant Scoping
+            - generic [ref=f1e631]: •
+            - generic [ref=f1e632]: Verified JWT Security

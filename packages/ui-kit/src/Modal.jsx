@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useId } from 'react';
+import React, { useEffect, useRef, useId, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { LuX } from 'react-icons/lu';
 
 const Modal = ({
@@ -118,7 +119,7 @@ const Modal = ({
     ? "border-slate-800 bg-slate-950/60"
     : "border-slate-100 bg-slate-50/30";
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-hidden">
       <div
         className="fixed inset-0 transition-opacity"
@@ -133,7 +134,8 @@ const Modal = ({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         tabIndex={-1}
-        className={`w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2.5rem)] rounded-2xl border flex flex-col overflow-hidden min-h-0 relative z-10 animate-fade-in focus:outline-none ${modalBg} ${selectedSize} ${className}`}
+        style={{ maxHeight: 'min(88vh, calc(100dvh - 2.5rem))' }}
+        className={`w-full rounded-2xl border flex flex-col overflow-hidden min-h-0 relative z-10 animate-fade-in focus:outline-none ${modalBg} ${selectedSize} ${className}`}
       >
 
         {/* Header */}
@@ -162,6 +164,8 @@ const Modal = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default Modal;

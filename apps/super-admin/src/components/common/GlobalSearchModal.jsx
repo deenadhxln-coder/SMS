@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Building, ArrowRight, X, ExternalLink, Hash, Mail } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -59,7 +60,7 @@ const GlobalSearchModal = ({ isOpen, onClose, tenants = [], onSelectTenant }) =>
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div 
       className="fixed inset-0 z-50 flex items-start justify-center pt-20 sm:pt-28 px-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
@@ -171,6 +172,8 @@ const GlobalSearchModal = ({ isOpen, onClose, tenants = [], onSelectTenant }) =>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export default GlobalSearchModal;

@@ -1,0 +1,27 @@
+- generic [ref=f3e2]:
+  - status "Loading DHXLN App Platform Control Center":
+    - generic:
+      - heading "DHXLN App" [level=1]
+      - paragraph: Platform Control Center
+      - progressbar
+      - generic: Initializing platform console...
+  - generic [ref=f3e7]:
+    - generic [ref=f3e13]:
+      - generic [ref=f3e14]: SMS Platform
+      - generic [ref=f3e15]: Control Center
+    - generic [ref=f3e16]:
+      - generic [ref=f3e17]:
+        - heading "Platform Sign In" [level=2] [ref=f3e18]
+        - paragraph [ref=f3e19]: Access global multi-tenant operations and subscription governance
+      - generic [ref=f3e20]:
+        - generic [ref=f3e21]:
+          - generic [ref=f3e22]: Super Admin Email Address
+          - textbox "admin@school.com" [ref=f3e23]
+        - generic [ref=f3e24]:
+          - generic [ref=f3e25]: Password
+          - textbox "••••••••" [ref=f3e26]
+        - button "Authenticate & Access Console" [ref=f3e27] [cursor=pointer]
+      - generic [ref=f3e29]:
+        - generic [ref=f3e30]: Authorized personnel only
+        - generic [ref=f3e34]: SaaS v2.0
+    - generic [ref=f3e35]: Multi-Tenant School Management Platform • Operational Control Center
